@@ -1,0 +1,6 @@
+{
+  "name": "이음누리캠퍼스 공간 예약 시스템",
+  "description": "교회 부속 건물의 지역 사회 개방을 위한 전문 예약 관리 플랫폼",
+  "version": "1.0.0",
+  "requestFramePermissions": []
+}
