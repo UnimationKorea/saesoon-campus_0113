@@ -37,7 +37,8 @@ import {
   Mail,
   ToggleLeft,
   ToggleRight,
-  Save
+  Save,
+  Cloud
 } from 'lucide-react';
 import { GoogleGenAI, Type } from "@google/genai";
 
@@ -125,53 +126,48 @@ const timeToMinutes = (time: string): number => {
   return h * 60 + m;
 };
 
-// --- Storage Service ---
-const StorageService = {
-  getReservations: (): Reservation[] => {
+// --- Simulated Cloud Service (Preparing for Firebase) ---
+// 이 서비스는 추후 Firebase SDK 코드로 1:1 교체가 가능한 구조입니다.
+const CloudService = {
+  // 인위적인 서버 지연 시간 시뮬레이션 (800ms)
+  delay: () => new Promise(resolve => setTimeout(resolve, 800)),
+
+  getReservations: async (): Promise<Reservation[]> => {
+    await CloudService.delay();
     const data = localStorage.getItem('ieumnuri_reservations');
     return data ? JSON.parse(data) : [];
   },
-  saveReservation: (res: Reservation) => {
-    const all = StorageService.getReservations();
+
+  saveReservation: async (res: Reservation): Promise<void> => {
+    await CloudService.delay();
+    const all = await CloudService.getReservations();
     all.push({ ...res, isRead: true });
     localStorage.setItem('ieumnuri_reservations', JSON.stringify(all));
   },
-  updateStatus: (id: string, status: Reservation['status']) => {
-    const all = StorageService.getReservations();
+
+  updateStatus: async (id: string, status: Reservation['status']): Promise<void> => {
+    await CloudService.delay();
+    const all = await CloudService.getReservations();
     const updated = all.map(r => r.id === id ? { ...r, status, isRead: false } : r);
     localStorage.setItem('ieumnuri_reservations', JSON.stringify(updated));
   },
-  markAsRead: (id: string) => {
-    const all = StorageService.getReservations();
-    const updated = all.map(r => r.id === id ? { ...r, isRead: true } : r);
-    localStorage.setItem('ieumnuri_reservations', JSON.stringify(updated));
-  },
-  markAllAsRead: () => {
-    const all = StorageService.getReservations();
-    const updated = all.map(r => ({ ...r, isRead: true }));
-    localStorage.setItem('ieumnuri_reservations', JSON.stringify(updated));
-  },
-  getNotices: (): Notice[] => {
+
+  getNotices: async (): Promise<Notice[]> => {
+    await CloudService.delay();
     const data = localStorage.getItem('ieumnuri_notices');
     return data ? JSON.parse(data) : [
       { id: '1', title: '이음누리 캠퍼스 정식 오픈 안내', content: '지역 사회와 함께하는 공간으로 새롭게 문을 열었습니다.', date: '2024-03-20', isImportant: true }
     ];
   },
-  saveNotice: (notice: Notice) => {
-    const all = StorageService.getNotices();
-    all.unshift(notice);
-    localStorage.setItem('ieumnuri_notices', JSON.stringify(all));
-  },
-  deleteNotice: (id: string) => {
-    const all = StorageService.getNotices();
-    const filtered = all.filter(n => n.id !== id);
-    localStorage.setItem('ieumnuri_notices', JSON.stringify(filtered));
-  },
-  getSettings: (): UserSettings => {
+
+  getSettings: async (): Promise<UserSettings> => {
+    await CloudService.delay();
     const data = localStorage.getItem('ieumnuri_settings');
     return data ? JSON.parse(data) : { emailNotifications: true, inAppNotifications: true };
   },
-  saveSettings: (settings: UserSettings) => {
+
+  saveSettings: async (settings: UserSettings): Promise<void> => {
+    await CloudService.delay();
     localStorage.setItem('ieumnuri_settings', JSON.stringify(settings));
   }
 };
@@ -189,26 +185,29 @@ const Sidebar = ({ activeTab, setActiveTab, unreadCount }: { activeTab: string, 
   ];
 
   return (
-    <aside className="w-64 bg-campus-green text-white h-screen fixed left-0 top-0 p-6 hidden md:block">
-      <div className="mb-10">
-        <h1 className="text-2xl font-bold tracking-tight italic">이음누리</h1>
-        <p className="text-xs text-green-200 mt-1 uppercase">Campus Reservation</p>
+    <aside className="w-64 bg-campus-green text-white h-screen fixed left-0 top-0 p-6 hidden md:block shadow-2xl z-40">
+      <div className="mb-10 flex items-center space-x-2">
+        <div className="p-1.5 bg-white/10 rounded-lg"><Cloud size={20} className="text-green-300" /></div>
+        <div>
+          <h1 className="text-2xl font-black tracking-tight italic">이음누리</h1>
+          <p className="text-[10px] text-green-300/80 font-bold uppercase tracking-widest">Connected</p>
+        </div>
       </div>
       <nav className="space-y-2">
         {menuItems.map(item => (
           <button
             key={item.id}
             onClick={() => setActiveTab(item.id)}
-            className={`w-full flex items-center justify-between px-4 py-3 rounded-lg transition-all ${
-              activeTab === item.id ? 'bg-white/20 shadow-inner' : 'hover:bg-white/10'
+            className={`w-full flex items-center justify-between px-4 py-3.5 rounded-2xl transition-all ${
+              activeTab === item.id ? 'bg-white/20 shadow-lg scale-[1.02]' : 'hover:bg-white/10 opacity-70 hover:opacity-100'
             }`}
           >
             <div className="flex items-center space-x-3">
-              <item.icon size={20} />
-              <span className="font-medium">{item.label}</span>
+              <item.icon size={18} />
+              <span className="font-bold text-sm">{item.label}</span>
             </div>
             {item.badge && item.badge > 0 && (
-              <span className="bg-orange-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full animate-pulse">
+              <span className="bg-orange-500 text-white text-[10px] font-black px-2 py-0.5 rounded-full shadow-md">
                 {item.badge}
               </span>
             )}
@@ -219,139 +218,217 @@ const Sidebar = ({ activeTab, setActiveTab, unreadCount }: { activeTab: string, 
   );
 };
 
-const Dashboard = ({ reservations, spaces, onReserveClick }: { reservations: Reservation[], spaces: Space[], onReserveClick: () => void }) => {
-  const today = new Date().toISOString().split('T')[0];
-  const todaysRes = reservations.filter(r => r.date === today && r.status !== 'cancelled');
-  const [notices, setNotices] = useState<Notice[]>([]);
+const LoadingState = ({ message = "데이터를 불러오는 중입니다..." }) => (
+  <div className="flex flex-col items-center justify-center py-20 space-y-4 animate-in fade-in duration-500">
+    <div className="relative">
+      <Loader2 size={48} className="text-campus-green animate-spin opacity-20" />
+      <Loader2 size={48} className="text-campus-green animate-spin absolute top-0 left-0" style={{ animationDuration: '1.5s' }} />
+    </div>
+    <p className="text-gray-400 font-bold text-sm">{message}</p>
+  </div>
+);
 
-  useEffect(() => {
-    setNotices(StorageService.getNotices());
-  }, []);
+// --- Fixed: Added missing Dashboard component to fix line 454 error ---
+/**
+ * Dashboard component provides an overview of the campus status.
+ */
+const Dashboard = ({ reservations, spaces, onReserveClick }: { 
+  reservations: Reservation[], 
+  spaces: Space[], 
+  onReserveClick: () => void 
+}) => {
+  const pendingCount = reservations.filter(r => r.status === 'pending').length;
+  const confirmedCount = reservations.filter(r => r.status === 'confirmed').length;
 
   return (
-    <div className="space-y-8 animate-in fade-in duration-500">
-      <header className="flex justify-between items-center">
-        <div>
-          <h2 className="text-3xl font-bold text-gray-800">이음누리 캠퍼스</h2>
-          <p className="text-gray-500 font-medium">지역 주민을 위한 열린 공간 예약 시스템입니다.</p>
-        </div>
-        <button 
-          onClick={onReserveClick}
-          className="bg-campus-green text-white px-6 py-3 rounded-full font-black flex items-center space-x-2 hover:shadow-lg transition-all"
-        >
-          <PlusCircle size={20} />
-          <span>공간 예약하기</span>
-        </button>
+    <div className="animate-in fade-in duration-500 space-y-10">
+      <header className="space-y-2">
+        <h2 className="text-4xl font-black text-gray-800 tracking-tight">좋은 하루입니다, <span className="text-campus-green">이음누리</span>입니다.</h2>
+        <p className="text-gray-400 font-bold">오늘의 캠퍼스 현황을 한눈에 확인하세요.</p>
       </header>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100">
-          <div className="flex items-center space-x-3 mb-4 text-campus-green"><Calendar size={20} /><h3 className="font-bold">오늘의 예약</h3></div>
-          <p className="text-4xl font-black text-gray-800">{todaysRes.length}<span className="text-lg font-normal ml-1">건</span></p>
+        <div className="bg-white p-8 rounded-[2.5rem] shadow-sm border border-gray-100 flex flex-col justify-between hover:shadow-md transition-shadow">
+          <div className="w-12 h-12 bg-orange-50 text-orange-500 rounded-2xl flex items-center justify-center mb-6"><Clock size={24} /></div>
+          <div>
+            <p className="text-gray-400 font-bold text-[10px] uppercase mb-1 tracking-widest">대기 중인 예약</p>
+            <h3 className="text-3xl font-black text-gray-800">{pendingCount}건</h3>
+          </div>
         </div>
-        <div className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100">
-          <div className="flex items-center space-x-3 mb-4 text-blue-600"><MapPin size={20} /><h3 className="font-bold">운영 공간</h3></div>
-          <p className="text-4xl font-black text-gray-800">{spaces.length}<span className="text-lg font-normal ml-1">곳</span></p>
+        <div className="bg-white p-8 rounded-[2.5rem] shadow-sm border border-gray-100 flex flex-col justify-between hover:shadow-md transition-shadow">
+          <div className="w-12 h-12 bg-green-50 text-campus-green rounded-2xl flex items-center justify-center mb-6"><CheckCircle2 size={24} /></div>
+          <div>
+            <p className="text-gray-400 font-bold text-[10px] uppercase mb-1 tracking-widest">승인된 예약</p>
+            <h3 className="text-3xl font-black text-gray-800">{confirmedCount}건</h3>
+          </div>
         </div>
-        <div className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100">
-          <div className="flex items-center space-x-3 mb-4 text-orange-500"><Users size={20} /><h3 className="font-bold">전체 예약</h3></div>
-          <p className="text-4xl font-black text-gray-800">{reservations.length}<span className="text-lg font-normal ml-1">건</span></p>
+        <div className="bg-campus-green p-8 rounded-[2.5rem] shadow-xl text-white flex flex-col justify-between group cursor-pointer hover:scale-[1.02] transition-all" onClick={onReserveClick}>
+          <div className="w-12 h-12 bg-white/20 rounded-2xl flex items-center justify-center mb-6 group-hover:bg-white/30 transition-colors"><PlusCircle size={24} /></div>
+          <div>
+            <p className="text-green-100/70 font-bold text-[10px] uppercase mb-1 tracking-widest">새로운 시작</p>
+            <h3 className="text-2xl font-black">지금 예약하기</h3>
+          </div>
         </div>
       </div>
-      
-      <section className="bg-white rounded-3xl border border-gray-100 shadow-sm overflow-hidden">
-        <div className="p-6 border-b border-gray-100 flex items-center justify-between">
-            <h3 className="font-bold text-gray-800">최신 공지사항</h3>
+
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <h3 className="text-xl font-black text-gray-800">추천 공간</h3>
+          <button onClick={onReserveClick} className="text-sm font-black text-campus-green flex items-center space-x-1 hover:underline"><span>모두 보기</span><ChevronRight size={14} /></button>
         </div>
-        <div className="divide-y divide-gray-50">
-            {notices.map(notice => (
-                <div key={notice.id} className="p-4 px-6 flex items-center justify-between hover:bg-gray-50 transition-colors">
-                    <div className="flex items-center space-x-3">
-                        {notice.isImportant && <span className="bg-red-100 text-red-600 text-[10px] font-black px-2 py-0.5 rounded-full">중요</span>}
-                        <span className="text-sm font-bold text-gray-700">{notice.title}</span>
-                    </div>
-                    <span className="text-xs text-gray-400 font-medium">{notice.date}</span>
-                </div>
-            ))}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {spaces.slice(0, 2).map(space => (
+            <div key={space.id} className="relative h-56 rounded-[2.5rem] overflow-hidden group cursor-pointer shadow-lg" onClick={onReserveClick}>
+              <img src={space.imageUrl} className="absolute inset-0 w-full h-full object-cover group-hover:scale-110 transition-transform duration-1000" />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent p-8 flex flex-col justify-end">
+                <div className="mb-2"><span className="bg-white/20 backdrop-blur-md px-3 py-1 rounded-full text-[10px] font-black text-white uppercase">{space.category}</span></div>
+                <h4 className="text-white font-black text-xl mb-1">{space.name}</h4>
+                <p className="text-white/70 text-sm font-medium line-clamp-1 leading-relaxed">{space.description}</p>
+              </div>
+            </div>
+          ))}
         </div>
-      </section>
+      </div>
     </div>
   );
 };
 
-const SettingsView = () => {
-    const [settings, setSettings] = useState<UserSettings>(StorageService.getSettings());
-    const [showToast, setShowToast] = useState(false);
-  
-    const toggleEmail = () => setSettings(prev => ({ ...prev, emailNotifications: !prev.emailNotifications }));
-    const toggleInApp = () => setSettings(prev => ({ ...prev, inAppNotifications: !prev.inAppNotifications }));
-  
-    const handleSave = () => {
-      StorageService.saveSettings(settings);
-      setShowToast(true);
-      setTimeout(() => setShowToast(false), 3000);
-    };
-  
-    return (
-      <div className="max-w-3xl animate-in fade-in duration-500 space-y-8">
+// --- Fixed: Added missing AIChat component for sidebar functionality ---
+/**
+ * AIChat component handles intelligent assistance using Gemini API.
+ */
+const AIChat = () => {
+  const [messages, setMessages] = useState<{ role: 'user' | 'model', text: string }[]>([
+    { role: 'model', text: '안녕하세요! 이음누리 캠퍼스 AI 매니저입니다. 시설 안내나 예약 규칙에 대해 궁금한 점이 있으신가요?' }
+  ]);
+  const [input, setInput] = useState('');
+  const [isTyping, setIsTyping] = useState(false);
+
+  const handleSend = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!input.trim() || isTyping) return;
+
+    const userMessage = input.trim();
+    setInput('');
+    setMessages(prev => [...prev, { role: 'user', text: userMessage }]);
+    setIsTyping(true);
+
+    try {
+      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+      const response = await ai.models.generateContent({
+        model: 'gemini-3-flash-preview',
+        contents: userMessage,
+        config: {
+            systemInstruction: "당신은 '이음누리 캠퍼스'의 친절한 AI 매니저입니다. 공간 정보를 안내하고 예약을 돕습니다.\n[시설]\n1. 이음홀: 대강당 (200인)\n2. 누리룸: 세미나실 (20인)\n3. 공유카페 이음: 카페 (40인)\n4. 크리에이터 스튜디오: 스튜디오 (5인)\n[규칙]\n- 첫 예약은 최대 2시간.\n- 추가 예약은 1시간 단위.\n- 승인 대기 후 확정."
+        }
+      });
+      
+      setMessages(prev => [...prev, { role: 'model', text: response.text || "죄송합니다. 메시지를 처리하지 못했습니다." }]);
+    } catch (error) {
+      console.error(error);
+      setMessages(prev => [...prev, { role: 'model', text: "네트워크 오류가 발생했습니다. 잠시 후 다시 이용해주세요." }]);
+    } finally {
+      setIsTyping(false);
+    }
+  };
+
+  return (
+    <div className="flex flex-col h-[calc(100vh-12rem)] bg-white rounded-[3rem] shadow-sm border border-gray-100 overflow-hidden animate-in fade-in duration-500">
+      <div className="p-8 border-b border-gray-50 flex items-center space-x-4 bg-green-50/20">
+        <div className="w-12 h-12 bg-campus-green text-white rounded-2xl flex items-center justify-center shadow-lg shadow-green-200/50"><MessageSquare size={24} /></div>
         <div>
-          <h2 className="text-3xl font-bold text-gray-800">환경 설정</h2>
-          <p className="text-gray-500 font-medium">서비스 이용을 위한 알림 및 개인 설정을 관리합니다.</p>
+          <h3 className="font-black text-gray-800 text-lg">AI 스마트 매니저</h3>
+          <p className="text-[10px] text-campus-green font-black flex items-center space-x-1.5 uppercase tracking-widest"><span className="w-2 h-2 bg-campus-green rounded-full animate-ping"></span><span>Online Assistance</span></p>
         </div>
-  
-        <div className="bg-white rounded-[2.5rem] shadow-sm border border-gray-100 overflow-hidden">
-          <div className="p-8 border-b border-gray-100 flex items-center space-x-4">
-            <div className="p-3 bg-green-50 text-campus-green rounded-2xl"><Bell size={24} /></div>
-            <div>
-              <h3 className="font-bold text-xl text-gray-800">알림 설정</h3>
-              <p className="text-sm text-gray-500 font-medium">예약 상태 변경에 대한 알림 방식을 선택하세요.</p>
+      </div>
+      
+      <div className="flex-1 overflow-y-auto p-8 space-y-8">
+        {messages.map((msg, idx) => (
+          <div key={idx} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'} animate-in slide-in-from-bottom-2`}>
+            <div className={`max-w-[85%] px-6 py-4 rounded-[2rem] font-medium text-sm shadow-sm leading-relaxed ${
+              msg.role === 'user' ? 'bg-campus-green text-white rounded-tr-none' : 'bg-gray-50 text-gray-700 rounded-tl-none border border-gray-100'
+            }`}>
+              {msg.text}
             </div>
           </div>
-          
-          <div className="p-8 space-y-6">
-            <div className="flex items-center justify-between group">
-              <div className="flex items-center space-x-4">
-                <div className="w-10 h-10 bg-gray-50 text-gray-400 rounded-full flex items-center justify-center group-hover:bg-green-50 group-hover:text-campus-green transition-colors"><Mail size={20} /></div>
-                <div>
-                  <p className="font-bold text-gray-800">이메일 알림</p>
-                  <p className="text-xs text-gray-400 font-medium">등록된 이메일로 예약 승인/거절 소식을 받습니다.</p>
-                </div>
-              </div>
-              <button onClick={toggleEmail} className="text-campus-green transition-transform active:scale-95">
-                {settings.emailNotifications ? <ToggleRight size={44} /> : <ToggleLeft size={44} className="text-gray-300" />}
-              </button>
-            </div>
-  
-            <div className="flex items-center justify-between group">
-              <div className="flex items-center space-x-4">
-                <div className="w-10 h-10 bg-gray-50 text-gray-400 rounded-full flex items-center justify-center group-hover:bg-green-50 group-hover:text-campus-green transition-colors"><BellDot size={20} /></div>
-                <div>
-                  <p className="font-bold text-gray-800">인앱 알림</p>
-                  <p className="text-xs text-gray-400 font-medium">앱 내 대시보드 및 알림 목록에서 상태 변화를 확인합니다.</p>
-                </div>
-              </div>
-              <button onClick={toggleInApp} className="text-campus-green transition-transform active:scale-95">
-                {settings.inAppNotifications ? <ToggleRight size={44} /> : <ToggleLeft size={44} className="text-gray-300" />}
-              </button>
-            </div>
-          </div>
-  
-          <div className="bg-gray-50 p-6 flex justify-end">
-            <button onClick={handleSave} className="bg-campus-green text-white px-8 py-3 rounded-2xl font-black flex items-center space-x-2 hover:bg-green-800 transition-all shadow-md active:scale-95">
-              <Save size={18} />
-              <span>설정 저장하기</span>
-            </button>
-          </div>
-        </div>
-  
-        {showToast && (
-          <div className="fixed bottom-10 right-10 bg-gray-900 text-white px-6 py-4 rounded-2xl shadow-2xl flex items-center space-x-3 animate-in slide-in-from-bottom duration-300 z-[60]">
-            <CheckCircle2 size={20} className="text-green-400" />
-            <span className="font-bold">설정이 성공적으로 저장되었습니다.</span>
+        ))}
+        {isTyping && (
+          <div className="flex justify-start animate-pulse">
+            <div className="bg-gray-50 px-6 py-4 rounded-[2rem] rounded-tl-none text-xs text-gray-400 font-black tracking-widest uppercase">Thinking...</div>
           </div>
         )}
       </div>
-    );
+
+      <form onSubmit={handleSend} className="p-8 bg-white border-t border-gray-50 flex items-center space-x-4">
+        <input 
+          value={input}
+          onChange={e => setInput(e.target.value)}
+          placeholder="AI 매니저에게 궁금한 점을 질문하세요"
+          className="flex-1 px-6 py-5 bg-gray-50 border-2 border-transparent focus:border-campus-green focus:bg-white outline-none rounded-[2rem] font-bold text-gray-900 shadow-inner transition-all"
+        />
+        <button type="submit" disabled={!input.trim() || isTyping} className="p-5 bg-campus-green text-white rounded-[2rem] shadow-xl hover:bg-green-800 transition-all disabled:opacity-20">
+          <Send size={24} />
+        </button>
+      </form>
+    </div>
+  );
+};
+
+// --- Fixed: Added missing Settings component for sidebar functionality ---
+/**
+ * Settings component manages user preferences.
+ */
+const Settings = () => {
+  const [settings, setSettings] = useState<UserSettings | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+
+  useEffect(() => {
+    CloudService.getSettings().then(setSettings);
+  }, []);
+
+  const handleSave = async () => {
+    if (!settings) return;
+    setIsSaving(true);
+    await CloudService.saveSettings(settings);
+    setIsSaving(false);
+    alert('설정이 안전하게 업데이트되었습니다.');
+  };
+
+  if (!settings) return <LoadingState />;
+
+  return (
+    <div className="max-w-2xl animate-in fade-in duration-500 space-y-10">
+        <header>
+            <h2 className="text-3xl font-black text-gray-800">사용자 환경 설정</h2>
+            <p className="text-gray-400 font-bold mt-1 text-sm">편리한 알림 설정을 통해 캠퍼스 소식을 빠르게 받아보세요.</p>
+        </header>
+        <div className="bg-white rounded-[3rem] p-10 shadow-sm border border-gray-100 space-y-10">
+            <div className="flex items-center justify-between p-8 bg-gray-50 rounded-[2.5rem] group cursor-pointer hover:bg-gray-100/50 transition-colors" onClick={() => setSettings({...settings, emailNotifications: !settings.emailNotifications})}>
+                <div className="flex items-center space-x-5">
+                    <div className="p-4 bg-white rounded-2xl shadow-sm text-blue-500 group-hover:scale-110 transition-transform"><Mail size={28} /></div>
+                    <div><h4 className="font-black text-gray-800 text-lg">이메일 알림</h4><p className="text-xs text-gray-400 font-bold mt-0.5">예약 승인/취소 상태를 메일로 수신</p></div>
+                </div>
+                <button className="text-campus-green transition-transform active:scale-90">{settings.emailNotifications ? <ToggleRight size={48} /> : <ToggleLeft size={48} className="text-gray-300" />}</button>
+            </div>
+
+            <div className="flex items-center justify-between p-8 bg-gray-50 rounded-[2.5rem] group cursor-pointer hover:bg-gray-100/50 transition-colors" onClick={() => setSettings({...settings, inAppNotifications: !settings.inAppNotifications})}>
+                <div className="flex items-center space-x-5">
+                    <div className="p-4 bg-white rounded-2xl shadow-sm text-orange-500 group-hover:scale-110 transition-transform"><Bell size={28} /></div>
+                    <div><h4 className="font-black text-gray-800 text-lg">실시간 인앱 알림</h4><p className="text-xs text-gray-400 font-bold mt-0.5">브라우저 및 서비스 내 실시간 푸시</p></div>
+                </div>
+                <button className="text-campus-green transition-transform active:scale-90">{settings.inAppNotifications ? <ToggleRight size={48} /> : <ToggleLeft size={48} className="text-gray-300" />}</button>
+            </div>
+
+            <button 
+                onClick={handleSave}
+                disabled={isSaving}
+                className="w-full py-6 bg-campus-green text-white rounded-[2rem] font-black text-xl shadow-xl shadow-green-100 flex items-center justify-center space-x-4 hover:bg-green-800 hover:-translate-y-1 transition-all"
+            >
+                {isSaving ? <Loader2 className="animate-spin" size={24} /> : <><Save size={24} /><span>모든 설정 저장하기</span></>}
+            </button>
+        </div>
+    </div>
+  );
 };
 
 const ReservationModal = ({ space, onClose, onReserved }: { space: Space, onClose: () => void, onReserved: () => void }) => {
@@ -362,84 +439,72 @@ const ReservationModal = ({ space, onClose, onReserved }: { space: Space, onClos
     startTime: '10:00',
     endTime: '12:00'
   });
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [existingReservations, setExistingReservations] = useState<Reservation[]>([]);
   const [isRepeatUser, setIsRepeatUser] = useState(false);
 
   useEffect(() => {
-    const all = StorageService.getReservations();
-    // 해당 날짜, 해당 공간에 신청자 이름으로 예약이 있는지 확인 (취소건 제외)
-    const userResOnDay = all.filter(r => 
-        r.userName.trim().toLowerCase() === formData.userName.trim().toLowerCase() && 
-        r.date === formData.date && 
-        r.spaceId === space.id &&
-        r.status !== 'cancelled'
-    );
-    setIsRepeatUser(userResOnDay.length > 0);
-    
-    // 타임라인용 (모든 확정된 예약 표시)
-    const confirmed = all.filter(r => r.spaceId === space.id && r.date === formData.date && r.status === 'confirmed');
-    setExistingReservations(confirmed);
-    setError(null);
+    const checkUser = async () => {
+        const all = await CloudService.getReservations();
+        const userResOnDay = all.filter(r => 
+            r.userName.trim().toLowerCase() === formData.userName.trim().toLowerCase() && 
+            r.date === formData.date && 
+            r.spaceId === space.id &&
+            r.status !== 'cancelled'
+        );
+        setIsRepeatUser(userResOnDay.length > 0);
+        
+        const confirmed = all.filter(r => r.spaceId === space.id && r.date === formData.date && r.status === 'confirmed');
+        setExistingReservations(confirmed);
+    };
+    checkUser();
   }, [formData.date, formData.userName, space.id]);
 
-  const updateField = (name: string, value: string) => {
-    setFormData(prev => ({ ...prev, [name]: value }));
-  };
-
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
     if (!formData.userName.trim()) { setError('이름 또는 단체명을 입력해주세요.'); return; }
-    if (!formData.purpose.trim()) { setError('사용 목적을 입력해주세요.'); return; }
+    
+    setIsSubmitting(true);
+    setError(null);
 
-    const startMins = timeToMinutes(formData.startTime);
-    const endMins = timeToMinutes(formData.endTime);
-    const durationMins = endMins - startMins;
+    try {
+        const startMins = timeToMinutes(formData.startTime);
+        const endMins = timeToMinutes(formData.endTime);
+        const durationMins = endMins - startMins;
 
-    if (durationMins <= 0) { setError('종료 시간은 시작 시간보다 늦어야 합니다.'); return; }
+        if (durationMins <= 0) throw new Error('종료 시간은 시작 시간보다 늦어야 합니다.');
 
-    // 예약 정책 체크
-    if (!isRepeatUser) {
-        // 초기 예약: 최대 2시간
-        if (durationMins > 120) {
-            setError('초기 예약은 최대 2시간까지만 가능합니다.');
-            return;
-        }
-    } else {
-        // 재예약: 정확히 1시간 단위
-        if (durationMins !== 60) {
-            setError('추가 예약은 1시간 단위로만 신청 가능합니다.');
-            return;
-        }
+        if (!isRepeatUser && durationMins > 120) throw new Error('초기 예약은 최대 2시간까지만 가능합니다.');
+        if (isRepeatUser && durationMins !== 60) throw new Error('추가 예약은 1시간 단위로만 신청 가능합니다.');
+
+        const hasOverlap = existingReservations.some(res => {
+          const resStart = timeToMinutes(res.startTime);
+          const resEnd = timeToMinutes(res.endTime);
+          return Math.max(startMins, resStart) < Math.min(endMins, resEnd);
+        });
+        if (hasOverlap) throw new Error('이미 해당 시간에 예약이 존재합니다.');
+
+        const newRes: Reservation = {
+          id: Math.random().toString(36).substr(2, 9),
+          spaceId: space.id,
+          userName: formData.userName,
+          purpose: formData.purpose,
+          date: formData.date,
+          startTime: formData.startTime,
+          endTime: formData.endTime,
+          status: 'pending',
+          createdAt: Date.now(),
+          isRead: true
+        };
+
+        await CloudService.saveReservation(newRes);
+        onReserved();
+    } catch (e: any) {
+        setError(e.message);
+    } finally {
+        setIsSubmitting(false);
     }
-
-    const hasOverlap = existingReservations.some(res => {
-      const resStart = timeToMinutes(res.startTime);
-      const resEnd = timeToMinutes(res.endTime);
-      return Math.max(startMins, resStart) < Math.min(endMins, resEnd);
-    });
-
-    if (hasOverlap) {
-      setError('이미 해당 시간에 예약이 존재합니다.');
-      return;
-    }
-
-    const newRes: Reservation = {
-      id: Math.random().toString(36).substr(2, 9),
-      spaceId: space.id,
-      userName: formData.userName,
-      purpose: formData.purpose,
-      date: formData.date,
-      startTime: formData.startTime,
-      endTime: formData.endTime,
-      status: 'pending',
-      createdAt: Date.now(),
-      isRead: true
-    };
-    StorageService.saveReservation(newRes);
-    onReserved();
-    alert('예약 신청이 완료되었습니다. 관리자 승인 후 확정됩니다.');
   };
 
   const startHour = 9;
@@ -452,67 +517,58 @@ const ReservationModal = ({ space, onClose, onReserved }: { space: Space, onClos
       const end = Math.min(timeToMinutes(res.endTime), endHour * 60);
       const left = ((start - startHour * 60) / totalMinutes) * 100;
       const width = ((end - start) / totalMinutes) * 100;
-      return { id: res.id, left, width, label: `${res.startTime}-${res.endTime}` };
+      return { id: res.id, left, width };
     });
   }, [existingReservations, totalMinutes]);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4 overflow-y-auto">
-      <div className="bg-white rounded-[2.5rem] w-full max-w-xl overflow-hidden shadow-2xl animate-in fade-in zoom-in-95 duration-300">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 overflow-y-auto">
+      <div className="bg-white rounded-[3rem] w-full max-w-xl overflow-hidden shadow-2xl animate-in fade-in zoom-in-95 duration-300">
         <div className="bg-campus-green p-8 text-white relative">
           <div className="flex items-center space-x-4 mb-2">
             <div className="p-3 bg-white/20 rounded-2xl"><MapPin size={28} /></div>
-            <div><h2 className="text-2xl font-black tracking-tight">{space.name}</h2><p className="text-sm text-green-100 font-medium">공간 예약 신청</p></div>
+            <div><h2 className="text-2xl font-black tracking-tight">{space.name}</h2><p className="text-sm text-green-100 font-medium opacity-80">서버 연결 중입니다...</p></div>
           </div>
-          <button onClick={onClose} className="absolute top-6 right-6 p-2 rounded-full hover:bg-white/10 text-white/70 hover:text-white transition-all"><X size={24} /></button>
+          <button onClick={onClose} className="absolute top-6 right-6 p-2 rounded-full hover:bg-white/10 text-white/70 transition-all"><X size={24} /></button>
         </div>
         
-        <form onSubmit={handleSubmit} className="p-8 md:p-10 space-y-8">
-          <div className="space-y-6">
+        <form onSubmit={handleSubmit} className="p-8 md:p-10 space-y-6">
+          <div className="space-y-4">
             <div className="flex items-center justify-between border-b border-gray-100 pb-2">
-                <div className="flex items-center space-x-2 text-campus-green"><User size={18} /><h3 className="font-bold text-sm uppercase">신청 정보</h3></div>
+                <div className="flex items-center space-x-2 text-campus-green font-bold text-sm uppercase">신청 정보</div>
                 {formData.userName && (
-                    <span className={`text-[10px] font-black px-2 py-1 rounded-full ${isRepeatUser ? 'bg-orange-100 text-orange-600' : 'bg-blue-100 text-blue-600'}`}>
+                    <span className={`text-[10px] font-black px-3 py-1 rounded-full ${isRepeatUser ? 'bg-orange-100 text-orange-600' : 'bg-blue-100 text-blue-600'}`}>
                         {isRepeatUser ? '추가 예약 모드 (1시간)' : '초기 예약 모드 (최대 2시간)'}
                     </span>
                 )}
             </div>
             
-            <div className="space-y-4">
-              <div className="group">
-                <label className="text-xs font-black text-gray-500 mb-2 block uppercase">이름 또는 단체명</label>
-                <input 
-                  autoFocus
-                  required 
-                  className="w-full px-5 py-4 bg-white border-2 border-gray-100 rounded-2xl focus:border-campus-green outline-none text-gray-900 placeholder:text-gray-300 transition-all font-bold shadow-sm" 
-                  value={formData.userName} 
-                  onChange={e => updateField('userName', e.target.value)} 
-                  placeholder="예: 홍길동 또는 이음누리 독서회" 
-                />
-              </div>
-              <div className="group">
-                <label className="text-xs font-black text-gray-500 mb-2 block uppercase">사용 목적</label>
-                <textarea 
-                  required 
-                  className="w-full px-5 py-4 bg-white border-2 border-gray-100 rounded-2xl focus:border-campus-green outline-none h-24 resize-none text-gray-900 placeholder:text-gray-300 transition-all font-bold shadow-sm" 
-                  value={formData.purpose} 
-                  onChange={e => updateField('purpose', e.target.value)} 
-                  placeholder="공간 사용 목적을 상세히 기술해 주세요" 
-                />
-              </div>
-            </div>
+            <input 
+              required 
+              disabled={isSubmitting}
+              className="w-full px-5 py-4 bg-gray-50 border-2 border-transparent focus:border-campus-green focus:bg-white outline-none text-gray-900 rounded-2xl transition-all font-bold shadow-sm" 
+              value={formData.userName} 
+              onChange={e => setFormData({...formData, userName: e.target.value})} 
+              placeholder="이름 또는 단체명" 
+            />
+            <textarea 
+              required 
+              disabled={isSubmitting}
+              className="w-full px-5 py-4 bg-gray-50 border-2 border-transparent focus:border-campus-green focus:bg-white outline-none h-24 resize-none text-gray-900 rounded-2xl transition-all font-bold shadow-sm" 
+              value={formData.purpose} 
+              onChange={e => setFormData({...formData, purpose: e.target.value})} 
+              placeholder="사용 목적을 입력하세요" 
+            />
           </div>
           
-          <div className="space-y-6">
-            <div className="flex items-center space-x-2 text-campus-green border-b border-gray-100 pb-2"><CalendarDays size={18} /><h3 className="font-bold text-sm uppercase">일정 선택</h3></div>
+          <div className="space-y-4">
+            <div className="flex items-center space-x-2 text-campus-green font-bold text-sm uppercase border-b border-gray-100 pb-2">일정 선택</div>
             
-            <div className="bg-gray-50 p-6 rounded-3xl border border-gray-100">
-              <div className="flex justify-between text-[10px] text-gray-400 font-black mb-3 uppercase tracking-tighter">
-                <span>09:00</span><span>12:00</span><span>15:00</span><span>18:00</span><span>21:00</span>
-              </div>
-              <div className="relative h-6 bg-gray-200 rounded-full overflow-hidden mb-4 shadow-inner">
+            <div className="bg-gray-50 p-6 rounded-3xl border border-gray-100 relative overflow-hidden">
+                {isSubmitting && <div className="absolute inset-0 bg-white/60 backdrop-blur-[1px] z-20 flex items-center justify-center"><Loader2 className="text-campus-green animate-spin" /></div>}
+              <div className="relative h-4 bg-gray-200 rounded-full overflow-hidden mb-4 shadow-inner">
                 {timelineItems.map(item => (
-                  <div key={item.id} className="absolute h-full bg-red-400/80 border-x border-red-600/10" style={{ left: `${item.left}%`, width: `${item.width}%` }} />
+                  <div key={item.id} className="absolute h-full bg-red-400/80" style={{ left: `${item.left}%`, width: `${item.width}%` }} />
                 ))}
                 {(() => {
                   const s = Math.max(timeToMinutes(formData.startTime), startHour * 60);
@@ -520,37 +576,27 @@ const ReservationModal = ({ space, onClose, onReserved }: { space: Space, onClos
                   if (e > s) {
                     const l = ((s - startHour * 60) / totalMinutes) * 100;
                     const w = ((e - s) / totalMinutes) * 100;
-                    return <div className="absolute h-full bg-green-500/50 border-x-2 border-green-600 z-10 animate-pulse" style={{ left: `${l}%`, width: `${w}%` }} />;
+                    return <div className="absolute h-full bg-green-500/50 border-x border-green-600 z-10" style={{ left: `${l}%`, width: `${w}%` }} />;
                   }
                   return null;
                 })()}
               </div>
-              <div className="flex items-center space-x-4">
-                <div className="flex items-center space-x-1.5"><span className="w-2.5 h-2.5 bg-red-400 rounded-full"></span><span className="text-[10px] font-bold text-gray-500">예약됨</span></div>
-                <div className="flex items-center space-x-1.5"><span className="w-2.5 h-2.5 bg-green-500/50 rounded-full"></span><span className="text-[10px] font-bold text-gray-500">내 선택</span></div>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="text-xs font-black text-gray-500 mb-2 block uppercase">예약 날짜</label>
-                <input type="date" required className="w-full px-5 py-4 bg-white border-2 border-gray-100 rounded-2xl focus:border-campus-green outline-none text-gray-900 font-bold shadow-sm" value={formData.date} onChange={e => updateField('date', e.target.value)} />
-              </div>
-              <div>
-                <label className="text-xs font-black text-gray-500 mb-2 block uppercase">시간 설정</label>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <input type="date" required disabled={isSubmitting} className="w-full px-4 py-3 bg-white border-2 border-gray-100 rounded-xl focus:border-campus-green outline-none text-gray-900 font-bold" value={formData.date} onChange={e => setFormData({...formData, date: e.target.value})} />
                 <div className="flex items-center space-x-2">
-                  <input type="time" required className="w-full px-3 py-4 bg-white border-2 border-gray-100 rounded-2xl focus:border-campus-green outline-none text-sm text-gray-900 font-bold shadow-sm" value={formData.startTime} onChange={e => updateField('startTime', e.target.value)} />
-                  <span className="text-gray-400 font-black">~</span>
-                  <input type="time" required className="w-full px-3 py-4 bg-white border-2 border-gray-100 rounded-2xl focus:border-campus-green outline-none text-sm text-gray-900 font-bold shadow-sm" value={formData.endTime} onChange={e => updateField('endTime', e.target.value)} />
+                  <input type="time" required disabled={isSubmitting} className="flex-1 px-3 py-3 bg-white border-2 border-gray-100 rounded-xl outline-none text-sm font-bold" value={formData.startTime} onChange={e => setFormData({...formData, startTime: e.target.value})} />
+                  <input type="time" required disabled={isSubmitting} className="flex-1 px-3 py-3 bg-white border-2 border-gray-100 rounded-xl outline-none text-sm font-bold" value={formData.endTime} onChange={e => setFormData({...formData, endTime: e.target.value})} />
                 </div>
               </div>
             </div>
-            {error && <p className="mt-2 text-red-600 text-xs font-black flex items-center space-x-2 animate-bounce-short bg-red-50 p-3 rounded-xl border border-red-100"><AlertCircle size={14} /><span>{error}</span></p>}
+            {error && <p className="text-red-600 text-[11px] font-black flex items-center space-x-1 animate-pulse"><AlertCircle size={14} /><span>{error}</span></p>}
           </div>
 
           <div className="pt-4 flex space-x-4">
-            <button type="button" onClick={onClose} className="flex-1 px-6 py-4 rounded-2xl font-bold text-gray-500 bg-gray-100 hover:bg-gray-200 transition-colors">취소</button>
-            <button type="submit" className="flex-[2] bg-campus-green text-white py-4 rounded-2xl font-black text-lg shadow-lg hover:bg-green-800 transition-all">예약 신청하기</button>
+            <button type="button" onClick={onClose} disabled={isSubmitting} className="flex-1 py-4 rounded-2xl font-bold text-gray-400 bg-gray-100 hover:bg-gray-200 transition-colors">취소</button>
+            <button type="submit" disabled={isSubmitting} className="flex-[2] bg-campus-green text-white py-4 rounded-2xl font-black text-lg shadow-xl hover:shadow-2xl transition-all disabled:opacity-50 flex items-center justify-center space-x-2">
+              {isSubmitting ? <><Loader2 className="animate-spin" size={20} /><span>서버에 전송 중...</span></> : <span>예약 신청하기</span>}
+            </button>
           </div>
         </form>
       </div>
@@ -558,52 +604,32 @@ const ReservationModal = ({ space, onClose, onReserved }: { space: Space, onClos
   );
 };
 
-const SpaceExplorer = ({ onSelect }: { onSelect: (s: Space) => void }) => {
-    const [filter, setFilter] = useState<Space['category'] | 'all'>('all');
-    const filteredSpaces = filter === 'all' ? SPACES : SPACES.filter(s => s.category === filter);
-  
-    return (
-      <div className="space-y-6 animate-in fade-in duration-500">
-        <div className="flex flex-wrap gap-2">
-          {(['all', 'hall', 'room', 'cafe', 'studio'] as const).map(cat => (
-            <button key={cat} onClick={() => setFilter(cat)} className={`px-5 py-2.5 rounded-full text-sm font-bold transition-all ${filter === cat ? 'bg-campus-green text-white shadow-md' : 'bg-white text-gray-500 hover:bg-gray-100 border border-gray-200'}`}>
-              {cat === 'all' ? '전체' : cat === 'hall' ? '강당' : cat === 'room' ? '세미나실' : cat === 'cafe' ? '카페' : '스튜디오'}
-            </button>
-          ))}
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-          {filteredSpaces.map(space => (
-            <div key={space.id} className="bg-white rounded-3xl overflow-hidden shadow-sm border border-gray-100 hover:shadow-xl transition-all group">
-              <div className="relative h-56 overflow-hidden">
-                <img src={space.imageUrl} alt={space.name} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" />
-                <div className="absolute top-4 left-4"><span className="bg-white/90 backdrop-blur-md px-3 py-1 rounded-full text-xs font-bold text-campus-green shadow-sm">{space.category.toUpperCase()}</span></div>
-              </div>
-              <div className="p-6">
-                <div className="flex justify-between items-start mb-2"><h3 className="text-xl font-bold text-gray-800">{space.name}</h3><div className="flex items-center text-gray-500 text-sm font-bold"><Users size={14} className="mr-1" /><span>{space.capacity}인</span></div></div>
-                <p className="text-gray-500 text-sm mb-4 line-clamp-2 font-medium">{space.description}</p>
-                <div className="flex flex-wrap gap-2 mb-6">{space.facilities.map(f => (<span key={f} className="text-[10px] bg-gray-50 text-gray-500 px-2 py-1 rounded-md border border-gray-100 font-bold">{f}</span>))}</div>
-                <button onClick={() => onSelect(space)} className="w-full py-4 bg-gray-50 text-campus-green font-black rounded-xl hover:bg-campus-green hover:text-white transition-all flex items-center justify-center space-x-2"><span>이 공간 선택</span><ChevronRight size={18} /></button>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-    );
-  };
-
 const App = () => {
   const [activeTab, setActiveTab] = useState('dashboard');
   const [reservations, setReservations] = useState<Reservation[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [selectedSpace, setSelectedSpace] = useState<Space | null>(null);
   const [isAdminAuthenticated, setIsAdminAuthenticated] = useState(false);
   const [adminPasswordInput, setAdminPasswordInput] = useState('');
 
+  const loadData = async () => {
+    setIsLoading(true);
+    try {
+        const res = await CloudService.getReservations();
+        setReservations(res);
+    } catch (e) {
+        console.error("Failed to load data");
+    } finally {
+        setIsLoading(false);
+    }
+  };
+
   useEffect(() => {
-    setReservations(StorageService.getReservations());
+    loadData();
   }, [activeTab]);
 
   const refreshReservations = () => {
-    setReservations(StorageService.getReservations());
+    loadData();
     setSelectedSpace(null);
     if (activeTab === 'spaces') setActiveTab('reservations');
   };
@@ -620,49 +646,106 @@ const App = () => {
 
   return (
     <div className="min-h-screen flex bg-[#FDFBF7]">
-      <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} unreadCount={0} />
+      <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} unreadCount={reservations.filter(r => r.status === 'pending').length} />
+      
       <main className="flex-1 md:ml-64 p-8 min-h-screen">
         <div className="max-w-6xl mx-auto">
-          {activeTab === 'dashboard' && <Dashboard reservations={reservations} spaces={SPACES} onReserveClick={() => setActiveTab('spaces')} />}
-          {activeTab === 'spaces' && <SpaceExplorer onSelect={setSelectedSpace} />}
-          {activeTab === 'settings' && <SettingsView />}
-          {activeTab === 'admin' && (
-            <div className="max-w-2xl mx-auto">
-              {!isAdminAuthenticated ? (
-                <div className="bg-white p-12 rounded-[3.5rem] shadow-xl border border-gray-100 text-center">
-                  <div className="w-20 h-20 bg-green-50 text-campus-green rounded-full flex items-center justify-center mx-auto mb-8 shadow-inner"><Lock size={40} /></div>
-                  <h2 className="text-2xl font-bold text-gray-800 mb-2">관리자 로그인</h2>
-                  <form onSubmit={handleAdminAuth} className="space-y-6">
-                    <input type="password" className="w-full px-6 py-5 bg-white border-2 border-gray-100 rounded-3xl focus:border-campus-green outline-none text-center text-4xl font-black text-gray-900 tracking-widest transition-all" placeholder="••••" value={adminPasswordInput} onChange={e => setAdminPasswordInput(e.target.value)} autoFocus />
-                    <button type="submit" className="w-full bg-campus-green text-white py-5 rounded-3xl font-black text-lg shadow-lg hover:bg-green-800 transition-all">접속하기</button>
-                  </form>
-                </div>
-              ) : (
+          {isLoading ? (
+            <LoadingState />
+          ) : (
+            <>
+              {activeTab === 'dashboard' && <Dashboard reservations={reservations} spaces={SPACES} onReserveClick={() => setActiveTab('spaces')} />}
+              
+              {activeTab === 'spaces' && (
                 <div className="animate-in fade-in duration-500 space-y-8">
-                    <h2 className="text-3xl font-bold text-gray-800">관리자 제어판</h2>
-                    <div className="grid grid-cols-1 gap-4">
-                        {reservations.filter(r => r.status === 'pending').map(res => (
-                            <div key={res.id} className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100 flex items-center justify-between">
-                                <div>
-                                    <h4 className="font-bold text-lg text-gray-800">{res.userName} - {SPACES.find(s => s.id === res.spaceId)?.name}</h4>
-                                    <p className="text-sm text-gray-500 font-bold">{res.date} | {res.startTime} - {res.endTime}</p>
-                                    <p className="text-xs text-gray-400 mt-1 italic">"{res.purpose}"</p>
-                                </div>
-                                <div className="flex space-x-2">
-                                    <button onClick={() => { StorageService.updateStatus(res.id, 'confirmed'); refreshReservations(); }} className="px-4 py-2 bg-green-600 text-white rounded-xl font-bold hover:bg-green-700 flex items-center space-x-2"><ThumbsUp size={16} /><span>승인</span></button>
-                                    <button onClick={() => { StorageService.updateStatus(res.id, 'cancelled'); refreshReservations(); }} className="px-4 py-2 bg-red-50 text-red-600 rounded-xl font-bold hover:bg-red-100 flex items-center space-x-2"><ThumbsDown size={16} /><span>거절</span></button>
-                                </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    {SPACES.map(space => (
+                        <div key={space.id} className="bg-white rounded-[2.5rem] overflow-hidden shadow-sm border border-gray-100 hover:shadow-2xl transition-all group">
+                            <div className="relative h-60 overflow-hidden">
+                                <img src={space.imageUrl} alt={space.name} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" />
+                                <div className="absolute top-4 left-4"><span className="bg-white/90 backdrop-blur-md px-4 py-1.5 rounded-full text-xs font-black text-campus-green shadow-sm">{space.category.toUpperCase()}</span></div>
                             </div>
-                        ))}
-                        {reservations.filter(r => r.status === 'pending').length === 0 && <p className="text-center py-20 text-gray-400 font-bold">처리할 예약이 없습니다.</p>}
-                    </div>
+                            <div className="p-8">
+                                <div className="flex justify-between items-start mb-4"><h3 className="text-2xl font-black text-gray-800">{space.name}</h3><div className="flex items-center text-gray-400 font-bold"><Users size={16} className="mr-2" /><span>{space.capacity}인</span></div></div>
+                                <p className="text-gray-500 text-sm mb-6 font-medium leading-relaxed">{space.description}</p>
+                                <button onClick={() => setSelectedSpace(space)} className="w-full py-4 bg-gray-50 text-campus-green font-black rounded-2xl hover:bg-campus-green hover:text-white transition-all flex items-center justify-center space-x-2"><span>이 공간 예약하기</span><ChevronRight size={18} /></button>
+                            </div>
+                        </div>
+                    ))}
+                  </div>
                 </div>
               )}
-            </div>
+
+              {activeTab === 'reservations' && (
+                <div className="animate-in slide-in-from-bottom-4 duration-500 space-y-6">
+                    <h2 className="text-3xl font-black text-gray-800">나의 예약 내역</h2>
+                    {reservations.length > 0 ? (
+                        reservations.sort((a,b) => b.createdAt - a.createdAt).map(res => (
+                            <div key={res.id} className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100 flex items-center justify-between">
+                                <div className="flex items-center space-x-6">
+                                    <div className={`p-4 rounded-2xl ${res.status === 'confirmed' ? 'bg-green-100 text-green-700' : res.status === 'cancelled' ? 'bg-red-100 text-red-700' : 'bg-yellow-100 text-yellow-700'}`}>
+                                        {res.status === 'confirmed' ? <CheckCircle2 size={24} /> : res.status === 'cancelled' ? <XCircle size={24} /> : <Clock size={24} />}
+                                    </div>
+                                    <div>
+                                        <h4 className="font-black text-lg text-gray-800">{SPACES.find(s => s.id === res.spaceId)?.name}</h4>
+                                        <p className="text-sm text-gray-400 font-bold">{res.date} | {res.startTime} - {res.endTime}</p>
+                                    </div>
+                                </div>
+                                <div className={`px-5 py-2 rounded-full text-xs font-black ${res.status === 'confirmed' ? 'bg-green-600 text-white' : res.status === 'cancelled' ? 'bg-red-600 text-white' : 'bg-yellow-500 text-white'}`}>
+                                    {res.status === 'confirmed' ? '승인완료' : res.status === 'cancelled' ? '거절됨' : '대기중'}
+                                </div>
+                            </div>
+                        ))
+                    ) : (
+                        <div className="py-20 text-center text-gray-300 font-bold">예약 기록이 없습니다.</div>
+                    )}
+                </div>
+              )}
+
+              {activeTab === 'ai-chat' && <AIChat />}
+              
+              {activeTab === 'settings' && <Settings />}
+
+              {activeTab === 'admin' && (
+                <div className="max-w-2xl mx-auto">
+                    {!isAdminAuthenticated ? (
+                        <div className="bg-white p-12 rounded-[4rem] shadow-2xl border border-gray-50 text-center animate-in zoom-in-95 duration-500">
+                            <div className="w-20 h-20 bg-green-50 text-campus-green rounded-full flex items-center justify-center mx-auto mb-8 shadow-inner"><Lock size={40} /></div>
+                            <h2 className="text-2xl font-black text-gray-800 mb-2">관리자 로그인</h2>
+                            <p className="text-gray-400 text-sm mb-8 font-bold">서버 권한 확인이 필요합니다.</p>
+                            <form onSubmit={handleAdminAuth} className="space-y-6">
+                                <input type="password" name="adminPassword" className="w-full px-8 py-5 bg-gray-50 border-2 border-transparent focus:border-campus-green focus:bg-white rounded-3xl outline-none text-center text-5xl font-black text-gray-900 tracking-widest transition-all shadow-inner" placeholder="••••" value={adminPasswordInput} onChange={e => setAdminPasswordInput(e.target.value)} autoFocus />
+                                <button type="submit" className="w-full bg-campus-green text-white py-5 rounded-3xl font-black text-lg shadow-xl hover:bg-green-800 hover:scale-[1.02] transition-all">접속하기</button>
+                            </form>
+                        </div>
+                    ) : (
+                        <div className="animate-in fade-in duration-500 space-y-8">
+                            <div className="flex items-center justify-between"><h2 className="text-3xl font-black text-gray-800">승인 관리자</h2><button onClick={() => setIsAdminAuthenticated(false)} className="text-xs font-black text-red-500 px-4 py-2 hover:bg-red-50 rounded-xl transition-all">로그아웃</button></div>
+                            <div className="grid grid-cols-1 gap-4">
+                                {reservations.filter(r => r.status === 'pending').map(res => (
+                                    <div key={res.id} className="bg-white p-8 rounded-[2.5rem] shadow-sm border border-gray-100 flex items-center justify-between group hover:shadow-xl transition-all">
+                                        <div>
+                                            <div className="flex items-center space-x-3 mb-1"><h4 className="font-black text-xl text-gray-800">{res.userName}</h4><span className="text-xs font-bold text-campus-green bg-green-50 px-2 py-0.5 rounded-full">{SPACES.find(s => s.id === res.spaceId)?.name}</span></div>
+                                            <p className="text-sm text-gray-400 font-bold mb-4">{res.date} | {res.startTime} - {res.endTime}</p>
+                                            <div className="p-3 bg-gray-50 rounded-xl text-sm text-gray-600 font-medium italic">"{res.purpose}"</div>
+                                        </div>
+                                        <div className="flex flex-col space-y-2">
+                                            <button onClick={async () => { await CloudService.updateStatus(res.id, 'confirmed'); refreshReservations(); }} className="px-6 py-3 bg-green-600 text-white rounded-2xl font-black hover:bg-green-700 shadow-md flex items-center space-x-2"><ThumbsUp size={16} /><span>승인</span></button>
+                                            <button onClick={async () => { await CloudService.updateStatus(res.id, 'cancelled'); refreshReservations(); }} className="px-6 py-3 bg-red-50 text-red-600 rounded-2xl font-black hover:bg-red-100 flex items-center space-x-2"><ThumbsDown size={16} /><span>거절</span></button>
+                                        </div>
+                                    </div>
+                                ))}
+                                {reservations.filter(r => r.status === 'pending').length === 0 && <div className="py-20 text-center bg-white rounded-3xl border border-dashed border-gray-200 text-gray-300 font-black uppercase tracking-widest">No Pending Tasks</div>}
+                            </div>
+                        </div>
+                    )}
+                </div>
+              )}
+            </>
           )}
-          {/* 다른 탭 생략 가능하나 reservations 탭은 필요할 수 있음 */}
         </div>
       </main>
+
       {selectedSpace && <ReservationModal space={selectedSpace} onClose={() => setSelectedSpace(null)} onReserved={refreshReservations} />}
     </div>
   );
