@@ -33,13 +33,14 @@ import {
   Megaphone,
   Lock,
   Plus,
+  Minus,
   Settings as SettingsIcon,
   Mail,
   ToggleLeft,
   ToggleRight,
   Save,
   Cloud,
-  Calendar
+  FileText
 } from 'lucide-react';
 import { GoogleGenAI, Type } from "@google/genai";
 
@@ -68,7 +69,7 @@ interface Reservation {
   isRead?: boolean;
 }
 
-interface Notice {
+interface Announcement {
   id: string;
   title: string;
   content: string;
@@ -127,16 +128,14 @@ const timeToMinutes = (time: string): number => {
   return h * 60 + m;
 };
 
+const minutesToTime = (mins: number): string => {
+  const h = Math.floor(mins / 60);
+  const m = mins % 60;
+  return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
+};
+
 const formatDate = (date: Date): string => {
   return date.toISOString().split('T')[0];
-};
-
-const getDaysInMonth = (year: number, month: number) => {
-  return new Date(year, month + 1, 0).getDate();
-};
-
-const getFirstDayOfMonth = (year: number, month: number) => {
-  return new Date(year, month, 1).getDay();
 };
 
 // --- Simulated Cloud Service ---
@@ -172,6 +171,19 @@ const CloudService = {
   saveSettings: async (settings: UserSettings): Promise<void> => {
     await CloudService.delay();
     localStorage.setItem('ieumnuri_settings', JSON.stringify(settings));
+  },
+
+  getAnnouncements: async (): Promise<Announcement[]> => {
+    await CloudService.delay();
+    const data = localStorage.getItem('ieumnuri_announcements');
+    return data ? JSON.parse(data) : [];
+  },
+
+  saveAnnouncement: async (ann: Announcement): Promise<void> => {
+    await CloudService.delay();
+    const all = await CloudService.getAnnouncements();
+    all.unshift(ann); // Newest first
+    localStorage.setItem('ieumnuri_announcements', JSON.stringify(all));
   }
 };
 
@@ -231,193 +243,235 @@ const LoadingState = ({ message = "데이터를 불러오는 중입니다..." })
   </div>
 );
 
-/**
- * FullCalendarView Component
- * Displays reservations in Month, Week, or Day format.
- */
-const FullCalendarView = ({ reservations }: { reservations: Reservation[] }) => {
-  const [view, setView] = useState<'month' | 'week' | 'day'>('month');
-  const [currentDate, setCurrentDate] = useState(new Date());
+const ReservationModal = ({ space, onClose, onReserved }: { space: Space, onClose: () => void, onReserved: () => void }) => {
+  const [formData, setFormData] = useState({
+    userName: '',
+    purpose: '',
+    date: formatDate(new Date()),
+    startTime: '10:00',
+    endTime: '12:00'
+  });
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [existingReservations, setExistingReservations] = useState<Reservation[]>([]);
+  const [isRepeatUser, setIsRepeatUser] = useState(false);
 
-  const navigateDate = (amount: number) => {
-    const newDate = new Date(currentDate);
-    if (view === 'month') newDate.setMonth(newDate.getMonth() + amount);
-    if (view === 'week') newDate.setDate(newDate.getDate() + amount * 7);
-    if (view === 'day') newDate.setDate(newDate.getDate() + amount);
-    setCurrentDate(newDate);
-  };
+  const START_HOUR = 9;
+  const END_HOUR = 22;
 
-  const getStatusColor = (status: Reservation['status']) => {
-    switch (status) {
-      case 'confirmed': return 'bg-green-500 text-white';
-      case 'pending': return 'bg-yellow-500 text-white';
-      case 'cancelled': return 'bg-red-500 text-white';
-      default: return 'bg-gray-400 text-white';
-    }
-  };
-
-  const monthLabel = currentDate.toLocaleString('ko-KR', { year: 'numeric', month: 'long' });
-  const dayLabel = currentDate.toLocaleString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'short' });
-
-  // Month View Logic
-  const renderMonthView = () => {
-    const year = currentDate.getFullYear();
-    const month = currentDate.getMonth();
-    const daysInMonth = getDaysInMonth(year, month);
-    const firstDay = getFirstDayOfMonth(year, month);
-    const days = [];
-
-    // Fill previous month days
-    for (let i = 0; i < firstDay; i++) {
-      days.push(<div key={`prev-${i}`} className="h-32 border-b border-r border-gray-100 bg-gray-50/50" />);
-    }
-
-    // Fill current month days
-    for (let d = 1; d <= daysInMonth; d++) {
-      const dateStr = formatDate(new Date(year, month, d));
-      const dailyReservations = reservations.filter(r => r.date === dateStr);
-      const isToday = formatDate(new Date()) === dateStr;
-
-      days.push(
-        <div key={d} className={`h-32 border-b border-r border-gray-100 p-2 overflow-hidden hover:bg-green-50/20 transition-colors ${isToday ? 'bg-green-50/10' : ''}`}>
-          <div className={`text-xs font-black mb-1 w-6 h-6 flex items-center justify-center rounded-full ${isToday ? 'bg-campus-green text-white shadow-lg' : 'text-gray-400'}`}>
-            {d}
-          </div>
-          <div className="space-y-1">
-            {dailyReservations.map(res => (
-              <div key={res.id} className={`text-[9px] px-1.5 py-0.5 rounded-md font-bold truncate ${getStatusColor(res.status)}`}>
-                {res.startTime} {SPACES.find(s => s.id === res.spaceId)?.name}
-              </div>
-            ))}
-          </div>
-        </div>
+  useEffect(() => {
+    const fetchConflicts = async () => {
+      const all = await CloudService.getReservations();
+      const userDayRes = all.filter(r => 
+        r.userName.trim().toLowerCase() === formData.userName.trim().toLowerCase() && 
+        r.date === formData.date &&
+        r.status !== 'cancelled'
       );
-    }
+      setIsRepeatUser(userDayRes.length > 0);
+      const confirmed = all.filter(r => r.spaceId === space.id && r.date === formData.date && r.status === 'confirmed');
+      setExistingReservations(confirmed);
+    };
+    if (formData.userName.length > 1 || formData.date) fetchConflicts();
+  }, [formData.date, formData.userName, space.id]);
 
-    return (
-      <div className="bg-white rounded-[2rem] shadow-sm border border-gray-100 overflow-hidden">
-        <div className="grid grid-cols-7 bg-gray-50/80 border-b border-gray-100">
-          {['일', '월', '화', '수', '목', '금', '토'].map(day => (
-            <div key={day} className="py-4 text-center text-xs font-black text-gray-400 uppercase tracking-widest">{day}</div>
-          ))}
-        </div>
-        <div className="grid grid-cols-7 border-l border-gray-100">
-          {days}
-        </div>
-      </div>
-    );
+  const slots = useMemo(() => {
+    const s = [];
+    for (let h = START_HOUR; h < END_HOUR; h++) {
+      s.push(`${h.toString().padStart(2, '0')}:00`);
+      s.push(`${h.toString().padStart(2, '0')}:30`);
+    }
+    return s;
+  }, []);
+
+  const isSlotBooked = (time: string) => {
+    const tMin = timeToMinutes(time);
+    return existingReservations.some(res => {
+      const resStart = timeToMinutes(res.startTime);
+      const resEnd = timeToMinutes(res.endTime);
+      return tMin >= resStart && tMin < resEnd;
+    });
   };
 
-  // Week/Day View Logic
-  const renderTimeGrid = (numDays: number) => {
-    const hours = Array.from({ length: 14 }, (_, i) => i + 9); // 9 AM to 10 PM
-    const weekStart = new Date(currentDate);
-    if (numDays === 7) {
-      weekStart.setDate(currentDate.getDate() - currentDate.getDay());
+  const isSelectionInvalid = () => {
+    const start = timeToMinutes(formData.startTime);
+    const end = timeToMinutes(formData.endTime);
+    const duration = end - start;
+    if (duration <= 0) return "종료 시간은 시작 시간보다 늦어야 합니다.";
+    if (!isRepeatUser && duration > 120) return "초기 예약은 최대 2시간까지 가능합니다.";
+    if (isRepeatUser && duration > 60) return "추가 예약은 1시간까지만 가능합니다.";
+    
+    const hasOverlap = existingReservations.some(res => {
+      const resStart = timeToMinutes(res.startTime);
+      const resEnd = timeToMinutes(res.endTime);
+      return Math.max(start, resStart) < Math.min(end, resEnd);
+    });
+    if (hasOverlap) return "해당 시간에 이미 예약이 존재합니다.";
+    
+    return null;
+  };
+
+  const handleSlotClick = (time: string) => {
+    if (isSlotBooked(time)) return;
+    
+    const tMin = timeToMinutes(time);
+    const defaultDuration = isRepeatUser ? 60 : 120;
+    setFormData({
+      ...formData,
+      startTime: time,
+      endTime: minutesToTime(Math.min(tMin + defaultDuration, END_HOUR * 60))
+    });
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const validationError = isSelectionInvalid();
+    if (validationError) { setError(validationError); return; }
+    if (!formData.userName.trim()) { setError('성함 또는 단체명을 입력하세요.'); return; }
+    
+    setIsSubmitting(true);
+    setError(null);
+
+    try {
+      const newRes: Reservation = {
+        id: Math.random().toString(36).substr(2, 9),
+        spaceId: space.id,
+        userName: formData.userName,
+        purpose: formData.purpose,
+        date: formData.date,
+        startTime: formData.startTime,
+        endTime: formData.endTime,
+        status: 'pending',
+        createdAt: Date.now()
+      };
+      await CloudService.saveReservation(newRes);
+      onReserved();
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setIsSubmitting(false);
     }
-
-    return (
-      <div className="bg-white rounded-[2rem] shadow-sm border border-gray-100 overflow-hidden">
-        <div className="flex border-b border-gray-100 bg-gray-50/80">
-          <div className="w-20 border-r border-gray-100"></div>
-          {Array.from({ length: numDays }).map((_, i) => {
-            const date = new Date(weekStart);
-            date.setDate(weekStart.getDate() + i);
-            const isToday = formatDate(new Date()) === formatDate(date);
-            return (
-              <div key={i} className="flex-1 py-4 text-center border-r border-gray-100 last:border-r-0">
-                <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">{date.toLocaleString('ko-KR', { weekday: 'short' })}</p>
-                <p className={`text-sm font-black ${isToday ? 'text-campus-green' : 'text-gray-800'}`}>{date.getDate()}</p>
-              </div>
-            );
-          })}
-        </div>
-        <div className="flex h-[600px] overflow-y-auto">
-          <div className="w-20 border-r border-gray-100 bg-gray-50/30">
-            {hours.map(h => (
-              <div key={h} className="h-16 border-b border-gray-50 flex items-center justify-center text-[10px] font-bold text-gray-400">
-                {h}:00
-              </div>
-            ))}
-          </div>
-          <div className="flex-1 flex">
-            {Array.from({ length: numDays }).map((_, i) => {
-              const date = new Date(weekStart);
-              date.setDate(weekStart.getDate() + i);
-              const dateStr = formatDate(date);
-              const dailyRes = reservations.filter(r => r.date === dateStr);
-
-              return (
-                <div key={i} className="flex-1 relative border-r border-gray-50 last:border-r-0">
-                  {hours.map(h => (
-                    <div key={h} className="h-16 border-b border-gray-50" />
-                  ))}
-                  {dailyRes.map(res => {
-                    const startMins = timeToMinutes(res.startTime);
-                    const endMins = timeToMinutes(res.endTime);
-                    const top = ((startMins - 9 * 60) / 60) * 64; // 1h = 64px (h-16)
-                    const height = ((endMins - startMins) / 60) * 64;
-                    if (top < 0) return null; // Outside display range
-                    return (
-                      <div 
-                        key={res.id} 
-                        className={`absolute left-1 right-1 rounded-xl p-2 shadow-lg border-l-4 border-white/20 z-10 overflow-hidden ${getStatusColor(res.status)}`}
-                        style={{ top: `${top}px`, height: `${height}px` }}
-                      >
-                        <p className="text-[9px] font-black opacity-80 uppercase leading-none mb-1">{res.startTime}-{res.endTime}</p>
-                        <p className="text-[10px] font-black leading-tight line-clamp-1">{res.userName}</p>
-                        <p className="text-[8px] font-bold opacity-70 truncate">{SPACES.find(s => s.id === res.spaceId)?.name}</p>
-                      </div>
-                    );
-                  })}
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      </div>
-    );
   };
 
   return (
-    <div className="space-y-6 animate-in fade-in duration-500">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div className="flex items-center space-x-4 bg-white p-2 rounded-2xl shadow-sm border border-gray-100">
-          <button onClick={() => navigateDate(-1)} className="p-2 hover:bg-gray-100 rounded-xl transition-all"><ChevronLeft size={20} className="text-gray-400" /></button>
-          <h3 className="text-sm font-black text-gray-800 min-w-[120px] text-center">{view === 'month' ? monthLabel : dayLabel}</h3>
-          <button onClick={() => navigateDate(1)} className="p-2 hover:bg-gray-100 rounded-xl transition-all"><ChevronRight size={20} className="text-gray-400" /></button>
-          <div className="w-px h-6 bg-gray-100 mx-2" />
-          <button onClick={() => setCurrentDate(new Date())} className="text-[10px] font-black text-campus-green px-3 py-1.5 hover:bg-green-50 rounded-lg uppercase tracking-tighter">Today</button>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 overflow-y-auto">
+      <div className="bg-white rounded-[3rem] w-full max-w-2xl overflow-hidden shadow-2xl animate-in fade-in zoom-in-95 duration-300 my-8">
+        <div className="bg-campus-green p-8 text-white relative">
+          <div className="flex items-center space-x-4 mb-2">
+            <div className="p-3 bg-white/20 rounded-2xl"><MapPin size={28} /></div>
+            <div>
+              <h2 className="text-2xl font-black tracking-tight">{space.name}</h2>
+              <p className="text-sm text-green-100 font-medium opacity-80 italic">서버 실시간 동기화 중</p>
+            </div>
+          </div>
+          <button onClick={onClose} className="absolute top-6 right-6 p-2 rounded-full hover:bg-white/10 text-white/70 transition-all"><X size={24} /></button>
         </div>
+        
+        <form onSubmit={handleSubmit} className="p-8 md:p-10 space-y-8">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            <div className="space-y-6">
+              <div className="space-y-4">
+                <div className="flex items-center justify-between border-b border-gray-100 pb-2">
+                    <div className="flex items-center space-x-2 text-campus-green font-black text-xs uppercase tracking-widest">신청자 정보</div>
+                    {formData.userName.length > 1 && (
+                        <span className={`text-[10px] font-black px-3 py-1 rounded-full ${isRepeatUser ? 'bg-orange-100 text-orange-600' : 'bg-blue-100 text-blue-600'}`}>
+                            {isRepeatUser ? '추가 예약 (1시간)' : '초기 예약 (2시간)'}
+                        </span>
+                    )}
+                </div>
+                <input required disabled={isSubmitting} className="w-full px-5 py-4 bg-gray-50 border-2 border-transparent focus:border-campus-green focus:bg-white outline-none text-gray-900 rounded-2xl transition-all font-bold shadow-sm" value={formData.userName} onChange={e => setFormData({...formData, userName: e.target.value})} placeholder="성함 또는 단체명" />
+                <textarea required disabled={isSubmitting} className="w-full px-5 py-4 bg-gray-50 border-2 border-transparent focus:border-campus-green focus:bg-white outline-none h-32 resize-none text-gray-900 rounded-2xl transition-all font-bold shadow-sm" value={formData.purpose} onChange={e => setFormData({...formData, purpose: e.target.value})} placeholder="사용 목적 (예: 소그룹 독서 모임)" />
+              </div>
+              
+              <div className="space-y-4">
+                <div className="flex items-center space-x-2 text-campus-green font-black text-xs uppercase tracking-widest border-b border-gray-100 pb-2">날짜 선택</div>
+                <input type="date" required disabled={isSubmitting} className="w-full px-5 py-4 bg-white border-2 border-gray-100 rounded-2xl focus:border-campus-green outline-none text-gray-900 font-bold shadow-sm" value={formData.date} onChange={e => setFormData({...formData, date: e.target.value})} />
+              </div>
+            </div>
 
-        <div className="flex bg-gray-100 p-1 rounded-2xl self-start">
-          {['month', 'week', 'day'].map((v) => (
-            <button
-              key={v}
-              onClick={() => setView(v as any)}
-              className={`px-6 py-2 rounded-xl text-xs font-black transition-all ${
-                view === v ? 'bg-white text-campus-green shadow-md' : 'text-gray-400 hover:text-gray-600'
-              }`}
-            >
-              {v.toUpperCase()}
+            <div className="space-y-4">
+              <div className="flex items-center justify-between border-b border-gray-100 pb-2">
+                <div className="flex items-center space-x-2 text-campus-green font-black text-xs uppercase tracking-widest">시간 슬롯 선택</div>
+                <div className="flex items-center space-x-2 text-[10px] font-bold text-gray-400">
+                  <span className="flex items-center"><span className="w-2 h-2 bg-red-400 rounded-full mr-1"></span>예약됨</span>
+                  <span className="flex items-center"><span className="w-2 h-2 bg-campus-green rounded-full mr-1"></span>선택됨</span>
+                </div>
+              </div>
+              
+              <div className="grid grid-cols-4 gap-2 max-h-[320px] overflow-y-auto pr-2 custom-scrollbar">
+                {slots.map(time => {
+                  const booked = isSlotBooked(time);
+                  const selected = timeToMinutes(time) >= timeToMinutes(formData.startTime) && timeToMinutes(time) < timeToMinutes(formData.endTime);
+                  
+                  return (
+                    <button
+                      key={time}
+                      type="button"
+                      disabled={booked || isSubmitting}
+                      onClick={() => handleSlotClick(time)}
+                      className={`py-2 rounded-xl text-[11px] font-black transition-all border-2 ${
+                        selected 
+                          ? 'bg-campus-green text-white border-campus-green shadow-lg scale-95' 
+                          : booked 
+                            ? 'bg-gray-100 text-gray-300 border-transparent cursor-not-allowed opacity-50' 
+                            : 'bg-white text-gray-600 border-gray-100 hover:border-campus-green hover:text-campus-green shadow-sm'
+                      }`}
+                    >
+                      {time}
+                    </button>
+                  );
+                })}
+              </div>
+
+              <div className="bg-gray-50 p-4 rounded-2xl border border-gray-100 flex items-center justify-between">
+                <div className="flex items-center space-x-3 text-xs font-bold text-gray-500">
+                  <Clock size={14} />
+                  <span>{formData.startTime} - {formData.endTime}</span>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <button type="button" onClick={() => {
+                    const s = timeToMinutes(formData.startTime);
+                    const e = timeToMinutes(formData.endTime);
+                    setFormData({...formData, endTime: minutesToTime(Math.max(s + 30, e - 30))});
+                  }} className="p-1 hover:bg-gray-200 rounded-lg text-gray-400"><Minus size={14} /></button>
+                  <button type="button" onClick={() => {
+                    const e = timeToMinutes(formData.endTime);
+                    setFormData({...formData, endTime: minutesToTime(Math.min(END_HOUR * 60, e + 30))});
+                  }} className="p-1 hover:bg-gray-200 rounded-lg text-gray-400"><Plus size={14} /></button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {error && (
+            <div className="bg-red-50 p-4 rounded-2xl border border-red-100 flex items-center space-x-3 text-red-600 animate-bounce-short">
+              <AlertCircle size={20} className="shrink-0" />
+              <p className="text-sm font-black tracking-tight">{error}</p>
+            </div>
+          )}
+
+          <div className="pt-4 flex space-x-4">
+            <button type="button" onClick={onClose} disabled={isSubmitting} className="flex-1 py-5 rounded-[1.5rem] font-black text-gray-400 bg-gray-100 hover:bg-gray-200 transition-all uppercase tracking-widest text-xs">Close</button>
+            <button type="submit" disabled={isSubmitting} className="flex-[2] bg-campus-green text-white py-5 rounded-[1.5rem] font-black text-lg shadow-xl hover:shadow-2xl transition-all disabled:opacity-50 flex items-center justify-center space-x-3 active:scale-95">
+              {isSubmitting ? <><Loader2 className="animate-spin" size={24} /><span>처리 중...</span></> : <span>예약 신청 보내기</span>}
             </button>
-          ))}
-        </div>
-      </div>
-
-      {view === 'month' ? renderMonthView() : renderTimeGrid(view === 'week' ? 7 : 1)}
-
-      <div className="flex items-center space-x-6 px-4 py-3 bg-white/50 rounded-2xl border border-dashed border-gray-200">
-        <span className="text-[10px] font-black text-gray-400 uppercase">Legend:</span>
-        <div className="flex items-center space-x-2"><div className="w-3 h-3 bg-green-500 rounded-full" /><span className="text-[10px] font-bold text-gray-500">Confirmed</span></div>
-        <div className="flex items-center space-x-2"><div className="w-3 h-3 bg-yellow-500 rounded-full" /><span className="text-[10px] font-bold text-gray-500">Pending</span></div>
-        <div className="flex items-center space-x-2"><div className="w-3 h-3 bg-red-500 rounded-full" /><span className="text-[10px] font-bold text-gray-500">Cancelled</span></div>
+          </div>
+        </form>
       </div>
     </div>
   );
 };
 
-const Dashboard = ({ reservations, spaces, onReserveClick }: { reservations: Reservation[], spaces: Space[], onReserveClick: () => void }) => {
+const DashboardView = ({ 
+  reservations, 
+  spaces, 
+  announcements, 
+  onReserveClick 
+}: { 
+  reservations: Reservation[], 
+  spaces: Space[], 
+  announcements: Announcement[],
+  onReserveClick: () => void 
+}) => {
   const pendingCount = reservations.filter(r => r.status === 'pending').length;
   const confirmedCount = reservations.filter(r => r.status === 'confirmed').length;
 
@@ -443,6 +497,27 @@ const Dashboard = ({ reservations, spaces, onReserveClick }: { reservations: Res
         </div>
       </div>
 
+      {announcements.length > 0 && (
+        <div className="space-y-6">
+          <div className="flex items-center space-x-2">
+            <Megaphone size={20} className="text-campus-green" />
+            <h3 className="text-xl font-black text-gray-800">캠퍼스 소식</h3>
+          </div>
+          <div className="flex space-x-6 overflow-x-auto pb-4 custom-scrollbar">
+            {announcements.slice(0, 3).map(ann => (
+              <div key={ann.id} className="min-w-[320px] bg-white p-8 rounded-[2.5rem] shadow-sm border border-gray-100 hover:border-campus-green transition-all group">
+                <div className="flex items-center justify-between mb-4">
+                  <span className="text-[10px] font-black text-gray-400 uppercase">{ann.date}</span>
+                  {ann.isImportant && <span className="bg-orange-100 text-orange-600 px-3 py-1 rounded-full text-[10px] font-black uppercase">Important</span>}
+                </div>
+                <h4 className="text-lg font-black text-gray-800 mb-3 group-hover:text-campus-green transition-colors">{ann.title}</h4>
+                <p className="text-gray-500 text-sm font-medium line-clamp-2 leading-relaxed">{ann.content}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <h3 className="text-xl font-black text-gray-800">추천 공간</h3>
@@ -465,7 +540,7 @@ const Dashboard = ({ reservations, spaces, onReserveClick }: { reservations: Res
   );
 };
 
-const AIChat = () => {
+const AIChatView = () => {
   const [messages, setMessages] = useState<{ role: 'user' | 'model', text: string }[]>([
     { role: 'model', text: '안녕하세요! 이음누리 캠퍼스 AI 매니저입니다. 시설 안내나 예약 규칙에 대해 궁금한 점이 있으신가요?' }
   ]);
@@ -523,7 +598,7 @@ const AIChat = () => {
   );
 };
 
-const Settings = () => {
+const SettingsView = () => {
   const [settings, setSettings] = useState<UserSettings | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   useEffect(() => { CloudService.getSettings().then(setSettings); }, []);
@@ -542,4 +617,270 @@ const Settings = () => {
             <div className="flex items-center justify-between p-8 bg-gray-50 rounded-[2.5rem] group cursor-pointer hover:bg-gray-100/50 transition-colors" onClick={() => setSettings({...settings, emailNotifications: !settings.emailNotifications})}>
                 <div className="flex items-center space-x-5">
                     <div className="p-4 bg-white rounded-2xl shadow-sm text-blue-500 group-hover:scale-110 transition-transform"><Mail size={28} /></div>
-                    <div><h4 className="font-black text-gray-
+                    <div><h4 className="font-black text-gray-800 text-lg">이메일 알림</h4><p className="text-xs text-gray-400 font-bold mt-0.5">예약 승인/취소 상태를 메일로 수신</p></div>
+                </div>
+                <button className="text-campus-green transition-transform active:scale-90">{settings.emailNotifications ? <ToggleRight size={48} /> : <ToggleLeft size={48} className="text-gray-300" />}</button>
+            </div>
+            <div className="flex items-center justify-between p-8 bg-gray-50 rounded-[2.5rem] group cursor-pointer hover:bg-gray-100/50 transition-colors" onClick={() => setSettings({...settings, inAppNotifications: !settings.inAppNotifications})}>
+                <div className="flex items-center space-x-5">
+                    <div className="p-4 bg-white rounded-2xl shadow-sm text-orange-500 group-hover:scale-110 transition-transform"><Bell size={28} /></div>
+                    <div><h4 className="font-black text-gray-800 text-lg">실시간 알림</h4><p className="text-xs text-gray-400 font-bold mt-0.5">예약 상태 실시간 푸시</p></div>
+                </div>
+                <button className="text-campus-green transition-transform active:scale-90">{settings.inAppNotifications ? <ToggleRight size={48} /> : <ToggleLeft size={48} className="text-gray-300" />}</button>
+            </div>
+            <button onClick={handleSave} disabled={isSaving} className="w-full py-6 bg-campus-green text-white rounded-3xl font-black text-xl shadow-xl hover:bg-green-800 transition-all flex items-center justify-center space-x-2">
+                {isSaving ? <Loader2 size={24} className="animate-spin" /> : <><Save size={24} /><span>설정 저장</span></>}
+            </button>
+        </div>
+    </div>
+  );
+};
+
+const AdminAnnouncementForm = ({ onSaved }: { onSaved: () => void }) => {
+  const [title, setTitle] = useState('');
+  const [content, setContent] = useState('');
+  const [isImportant, setIsImportant] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!title.trim() || !content.trim()) return;
+    setIsSaving(true);
+    const ann: Announcement = {
+      id: Math.random().toString(36).substr(2, 9),
+      title,
+      content,
+      date: formatDate(new Date()),
+      isImportant
+    };
+    await CloudService.saveAnnouncement(ann);
+    setTitle('');
+    setContent('');
+    setIsImportant(false);
+    setIsSaving(false);
+    onSaved();
+    alert('공지사항이 게시되었습니다.');
+  };
+
+  return (
+    <div className="bg-white p-10 rounded-[3rem] shadow-sm border border-gray-100 space-y-6 animate-in slide-in-from-right-4">
+      <div className="flex items-center space-x-3 text-campus-green">
+        <Megaphone size={24} />
+        <h3 className="text-xl font-black tracking-tight">새 공지사항 작성</h3>
+      </div>
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <input 
+          required 
+          className="w-full px-6 py-4 bg-gray-50 border-2 border-transparent focus:border-campus-green focus:bg-white outline-none rounded-2xl font-bold text-gray-900 shadow-sm transition-all" 
+          placeholder="공지 제목" 
+          value={title} 
+          onChange={e => setTitle(e.target.value)} 
+        />
+        <textarea 
+          required 
+          className="w-full px-6 py-4 bg-gray-50 border-2 border-transparent focus:border-campus-green focus:bg-white outline-none rounded-2xl font-bold text-gray-900 shadow-sm h-32 resize-none transition-all" 
+          placeholder="내용을 입력하세요" 
+          value={content} 
+          onChange={e => setContent(e.target.value)} 
+        />
+        <div className="flex items-center justify-between px-4">
+          <label className="flex items-center space-x-3 cursor-pointer group">
+            <input 
+              type="checkbox" 
+              className="w-5 h-5 accent-campus-green rounded" 
+              checked={isImportant} 
+              onChange={e => setIsImportant(e.target.checked)} 
+            />
+            <span className="text-sm font-black text-gray-400 group-hover:text-orange-500 transition-colors">중요 공지로 표시</span>
+          </label>
+          <button 
+            type="submit" 
+            disabled={isSaving} 
+            className="px-8 py-4 bg-campus-green text-white rounded-2xl font-black shadow-lg hover:shadow-xl hover:scale-[1.02] transition-all disabled:opacity-50 flex items-center space-x-2"
+          >
+            {isSaving ? <Loader2 size={18} className="animate-spin" /> : <><Plus size={18} /><span>게시하기</span></>}
+          </button>
+        </div>
+      </form>
+    </div>
+  );
+};
+
+const App = () => {
+  const [activeTab, setActiveTab] = useState('dashboard');
+  const [reservations, setReservations] = useState<Reservation[]>([]);
+  const [announcements, setAnnouncements] = useState<Announcement[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [selectedSpace, setSelectedSpace] = useState<Space | null>(null);
+  const [isAdminAuthenticated, setIsAdminAuthenticated] = useState(false);
+  const [adminPasswordInput, setAdminPasswordInput] = useState('');
+  const [adminView, setAdminView] = useState<'reservations' | 'announcements'>('reservations');
+
+  const loadData = async () => {
+    setIsLoading(true);
+    try {
+        const [resData, annData] = await Promise.all([
+          CloudService.getReservations(),
+          CloudService.getAnnouncements()
+        ]);
+        setReservations(resData);
+        setAnnouncements(annData);
+    } catch (e) {
+        console.error("Failed to load data");
+    } finally {
+        setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadData();
+  }, [activeTab]);
+
+  const refreshData = () => {
+    loadData();
+    setSelectedSpace(null);
+    if (activeTab === 'spaces') setActiveTab('reservations');
+  };
+
+  const handleAdminAuth = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (adminPasswordInput === '1225') {
+      setIsAdminAuthenticated(true);
+      setAdminPasswordInput('');
+    } else {
+      alert('비밀번호가 올바르지 않습니다.');
+    }
+  };
+
+  return (
+    <div className="min-h-screen flex bg-[#FDFBF7]">
+      <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} unreadCount={reservations.filter(r => r.status === 'pending').length} />
+      
+      <main className="flex-1 md:ml-64 p-8 min-h-screen">
+        <div className="max-w-6xl mx-auto">
+          {isLoading ? (
+            <LoadingState />
+          ) : (
+            <>
+              {activeTab === 'dashboard' && <DashboardView reservations={reservations} spaces={SPACES} announcements={announcements} onReserveClick={() => setActiveTab('spaces')} />}
+              
+              {activeTab === 'spaces' && (
+                <div className="animate-in fade-in duration-500 space-y-8">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    {SPACES.map(space => (
+                        <div key={space.id} className="bg-white rounded-[2.5rem] overflow-hidden shadow-sm border border-gray-100 hover:shadow-2xl transition-all group">
+                            <div className="relative h-60 overflow-hidden">
+                                <img src={space.imageUrl} alt={space.name} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" />
+                                <div className="absolute top-4 left-4"><span className="bg-white/90 backdrop-blur-md px-4 py-1.5 rounded-full text-xs font-black text-campus-green shadow-sm">{space.category.toUpperCase()}</span></div>
+                            </div>
+                            <div className="p-8">
+                                <div className="flex justify-between items-start mb-4"><h3 className="text-2xl font-black text-gray-800">{space.name}</h3><div className="flex items-center text-gray-400 font-bold"><Users size={16} className="mr-2" /><span>{space.capacity}인</span></div></div>
+                                <p className="text-gray-500 text-sm mb-6 font-medium leading-relaxed">{space.description}</p>
+                                <button onClick={() => setSelectedSpace(space)} className="w-full py-4 bg-gray-50 text-campus-green font-black rounded-2xl hover:bg-campus-green hover:text-white transition-all flex items-center justify-center space-x-2"><span>지금 예약하기</span><ChevronRight size={18} /></button>
+                            </div>
+                        </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {activeTab === 'reservations' && (
+                <div className="animate-in slide-in-from-bottom-4 duration-500 space-y-6">
+                    <h2 className="text-3xl font-black text-gray-800">예약 현황</h2>
+                    {reservations.length > 0 ? (
+                        reservations.sort((a,b) => b.createdAt - a.createdAt).map(res => (
+                            <div key={res.id} className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100 flex items-center justify-between group hover:border-campus-green transition-colors">
+                                <div className="flex items-center space-x-6">
+                                    <div className={`p-4 rounded-2xl ${res.status === 'confirmed' ? 'bg-green-100 text-green-700' : res.status === 'cancelled' ? 'bg-red-100 text-red-700' : 'bg-yellow-100 text-yellow-700'}`}>
+                                        {res.status === 'confirmed' ? <CheckCircle2 size={24} /> : res.status === 'cancelled' ? <XCircle size={24} /> : <Clock size={24} />}
+                                    </div>
+                                    <div>
+                                        <h4 className="font-black text-lg text-gray-800">{SPACES.find(s => s.id === res.spaceId)?.name}</h4>
+                                        <p className="text-sm text-gray-400 font-bold">{res.date} | {res.startTime} - {res.endTime}</p>
+                                    </div>
+                                </div>
+                                <div className={`px-5 py-2 rounded-full text-xs font-black ${res.status === 'confirmed' ? 'bg-green-600 text-white' : res.status === 'cancelled' ? 'bg-red-600 text-white' : 'bg-yellow-500 text-white'}`}>
+                                    {res.status === 'confirmed' ? '승인완료' : res.status === 'cancelled' ? '반려됨' : '대기중'}
+                                </div>
+                            </div>
+                        ))
+                    ) : (
+                        <div className="py-20 text-center text-gray-300 font-bold">표시할 예약이 없습니다.</div>
+                    )}
+                </div>
+              )}
+
+              {activeTab === 'ai-chat' && <AIChatView />}
+              
+              {activeTab === 'settings' && <SettingsView />}
+
+              {activeTab === 'admin' && (
+                <div className="max-w-4xl mx-auto space-y-8">
+                    {!isAdminAuthenticated ? (
+                        <div className="max-w-2xl mx-auto bg-white p-12 rounded-[4rem] shadow-2xl border border-gray-50 text-center animate-in zoom-in-95 duration-500 mt-10">
+                            <div className="w-20 h-20 bg-green-50 text-campus-green rounded-full flex items-center justify-center mx-auto mb-8 shadow-inner"><Lock size={40} /></div>
+                            <h2 className="text-2xl font-black text-gray-800 mb-2">관리자 로그인</h2>
+                            <p className="text-gray-400 text-sm mb-8 font-bold">서버 권한 확인이 필요합니다 (Pass: 1225)</p>
+                            <form onSubmit={handleAdminAuth} className="space-y-6">
+                                <input type="password" name="adminPassword" className="w-full px-8 py-5 bg-gray-50 border-2 border-transparent focus:border-campus-green focus:bg-white rounded-3xl outline-none text-center text-5xl font-black text-gray-900 tracking-widest transition-all shadow-inner" placeholder="••••" value={adminPasswordInput} onChange={e => setAdminPasswordInput(e.target.value)} autoFocus />
+                                <button type="submit" className="w-full bg-campus-green text-white py-5 rounded-3xl font-black text-lg shadow-xl hover:bg-green-800 hover:scale-[1.02] transition-all">접속하기</button>
+                            </form>
+                        </div>
+                    ) : (
+                        <div className="animate-in fade-in duration-500 space-y-8">
+                            <div className="flex items-center justify-between">
+                              <div className="flex space-x-4">
+                                <button 
+                                  onClick={() => setAdminView('reservations')} 
+                                  className={`px-6 py-3 rounded-2xl font-black transition-all ${adminView === 'reservations' ? 'bg-campus-green text-white shadow-lg' : 'bg-white text-gray-400 hover:bg-gray-50'}`}
+                                >
+                                  예약 관리
+                                </button>
+                                <button 
+                                  onClick={() => setAdminView('announcements')} 
+                                  className={`px-6 py-3 rounded-2xl font-black transition-all ${adminView === 'announcements' ? 'bg-campus-green text-white shadow-lg' : 'bg-white text-gray-400 hover:bg-gray-50'}`}
+                                >
+                                  공지사항 작성
+                                </button>
+                              </div>
+                              <button onClick={() => setIsAdminAuthenticated(false)} className="text-xs font-black text-red-500 px-4 py-2 hover:bg-red-50 rounded-xl transition-all">로그아웃</button>
+                            </div>
+
+                            {adminView === 'reservations' ? (
+                              <div className="grid grid-cols-1 gap-4">
+                                  {reservations.filter(r => r.status === 'pending').map(res => (
+                                      <div key={res.id} className="bg-white p-8 rounded-[2.5rem] shadow-sm border border-gray-100 flex items-center justify-between group hover:shadow-xl transition-all">
+                                          <div className="space-y-2">
+                                              <div className="flex items-center space-x-3 mb-1"><h4 className="font-black text-xl text-gray-800">{res.userName}</h4><span className="text-xs font-bold text-campus-green bg-green-50 px-3 py-1 rounded-full">{SPACES.find(s => s.id === res.spaceId)?.name}</span></div>
+                                              <p className="text-sm text-gray-400 font-bold">{res.date} | {res.startTime} - {res.endTime}</p>
+                                              <div className="p-4 bg-gray-50 rounded-2xl text-sm text-gray-600 font-medium leading-relaxed italic border border-gray-100">"{res.purpose}"</div>
+                                          </div>
+                                          <div className="flex flex-col space-y-2">
+                                              <button onClick={async () => { await CloudService.updateStatus(res.id, 'confirmed'); refreshData(); }} className="px-6 py-4 bg-green-600 text-white rounded-2xl font-black hover:bg-green-700 shadow-md flex items-center space-x-2 transition-all active:scale-95"><ThumbsUp size={18} /><span>승인</span></button>
+                                              <button onClick={async () => { await CloudService.updateStatus(res.id, 'cancelled'); refreshData(); }} className="px-6 py-4 bg-red-50 text-red-600 rounded-2xl font-black hover:bg-red-100 flex items-center space-x-2 transition-all active:scale-95"><ThumbsDown size={18} /><span>반려</span></button>
+                                          </div>
+                                      </div>
+                                  ))}
+                                  {reservations.filter(r => r.status === 'pending').length === 0 && (
+                                      <div className="py-32 text-center bg-white rounded-[3rem] border border-dashed border-gray-200 text-gray-300 font-black uppercase tracking-[0.2em] animate-pulse">All Tasks Completed</div>
+                                  )}
+                              </div>
+                            ) : (
+                              <AdminAnnouncementForm onSaved={refreshData} />
+                            )}
+                        </div>
+                    )}
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      </main>
+
+      {selectedSpace && <ReservationModal space={selectedSpace} onClose={() => setSelectedSpace(null)} onReserved={refreshData} />}
+    </div>
+  );
+};
+
+const root = createRoot(document.getElementById('root')!);
+root.render(<App />);
