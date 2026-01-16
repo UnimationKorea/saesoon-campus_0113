@@ -40,7 +40,23 @@ import {
   ToggleRight,
   Save,
   Cloud,
-  FileText
+  FileText,
+  ArrowRight,
+  Heart,
+  Sparkles,
+  Church,
+  Home,
+  Check,
+  Ban,
+  Filter,
+  Baby,
+  Dribbble,
+  BookOpen,
+  Coffee,
+  Sun,
+  Layout,
+  CalendarDays as CalendarDaysIcon,
+  History
 } from 'lucide-react';
 import { GoogleGenAI, Type } from "@google/genai";
 
@@ -53,7 +69,8 @@ interface Space {
   capacity: number;
   facilities: string[];
   imageUrl: string;
-  category: 'hall' | 'room' | 'cafe' | 'studio';
+  category: 'parenting' | 'activity' | 'edu' | 'meeting' | 'rest' | 'cafe';
+  icon: React.ElementType;
 }
 
 interface Reservation {
@@ -69,14 +86,6 @@ interface Reservation {
   isRead?: boolean;
 }
 
-interface Announcement {
-  id: string;
-  title: string;
-  content: string;
-  date: string;
-  isImportant: boolean;
-}
-
 interface UserSettings {
   emailNotifications: boolean;
   inAppNotifications: boolean;
@@ -84,40 +93,64 @@ interface UserSettings {
 
 const SPACES: Space[] = [
   {
-    id: 'ieum-hall',
-    name: '이음홀 (대강당)',
-    description: '공연, 예배, 대규모 세미나가 가능한 다목적 홀입니다.',
-    capacity: 200,
-    facilities: ['고급 음향', '4K 빔프로젝터', '무대 조명', '피아노'],
-    category: 'hall',
-    imageUrl: 'https://images.unsplash.com/photo-1519167758481-83f550bb49b3?auto=format&fit=crop&q=80&w=800'
+    id: 'kids-nuri',
+    name: '키즈누리 (1층)',
+    description: '지역사회와 함께하는 공동육아 및 아이들을 위한 창의적인 배움 공간입니다.',
+    capacity: 15,
+    facilities: ['놀이 매트', '아동 도서', '안전 울타리', '공기청정기'],
+    category: 'parenting',
+    icon: Baby,
+    imageUrl: 'https://images.unsplash.com/photo-1596464716127-f2a82984de30?auto=format&fit=crop&q=80&w=800'
   },
   {
-    id: 'nuri-room',
-    name: '누리룸 (세미나실)',
-    description: '집중도 높은 회의나 교육을 위한 공간입니다.',
-    capacity: 20,
-    facilities: ['전자칠판', '초고속 와이파이', '냉난방기'],
-    category: 'room',
-    imageUrl: 'https://images.unsplash.com/photo-1517502884422-41eaead166d4?auto=format&fit=crop&q=80&w=800'
+    id: 'vision-nuri',
+    name: '비전누리 (지하)',
+    description: '주민들의 다양한 동아리 활동과 문화적 소통이 이루어지는 창의 마당입니다.',
+    capacity: 30,
+    facilities: ['음향 장비', '빔 프로젝터', '전신 거울', '방음 시설'],
+    category: 'activity',
+    icon: Dribbble,
+    imageUrl: 'https://images.unsplash.com/photo-1524178232363-1fb28f74b671?auto=format&fit=crop&q=80&w=800'
   },
   {
-    id: 'share-cafe',
-    name: '공유 카페 이음',
-    description: '편안한 분위기에서 담소를 나누거나 개인 작업을 할 수 있는 공간입니다.',
+    id: 'edu-room',
+    name: '강의실 (1, 2층)',
+    description: '디지털 정보화 강좌, 웰니스 건강 강좌, 인문학 클래스가 열리는 배움터입니다.',
     capacity: 40,
-    facilities: ['커피머신', '바 테이블', '야외 테라스 연결'],
-    category: 'cafe',
-    imageUrl: 'https://images.unsplash.com/photo-1554118811-1e0d58224f24?auto=format&fit=crop&q=80&w=800'
+    facilities: ['전자칠판', '강연대', '노트북 충전함', '화이트보드'],
+    category: 'edu',
+    icon: BookOpen,
+    imageUrl: 'https://images.unsplash.com/photo-1497633762265-9d179a990aa6?auto=format&fit=crop&q=80&w=800'
   },
   {
-    id: 'creators-studio',
-    name: '크리에이터 스튜디오',
-    description: '유튜브 촬영, 팟캐스트 녹음이 가능한 전문 스튜디오입니다.',
-    capacity: 5,
-    facilities: ['콘덴서 마이크', '크로마키 배경', '편집용 PC'],
-    category: 'studio',
-    imageUrl: 'https://images.unsplash.com/photo-1598488035139-bdbb2231ce04?auto=format&fit=crop&q=80&w=800'
+    id: 'small-group',
+    name: '소그룹실 (2층)',
+    description: '총 6개의 독립된 공간에서 소규모 모임, 상담, 스터디를 진행할 수 있습니다.',
+    capacity: 6,
+    facilities: ['개별 냉난방', '모니터링 월', '방음 도어'],
+    category: 'meeting',
+    icon: Users,
+    imageUrl: 'https://images.unsplash.com/photo-1577412647305-991150c7d163?auto=format&fit=crop&q=80&w=800'
+  },
+  {
+    id: 'rooftop-rest',
+    name: '루프탑 휴게공간 (옥상)',
+    description: '도심 속에서 자연을 느끼며 치유와 휴식을 취할 수 있는 열린 옥상 정원입니다.',
+    capacity: 20,
+    facilities: ['야외 벤치', '파라솔', '포토존', '야간 조명'],
+    category: 'rest',
+    icon: Sun,
+    imageUrl: 'https://images.unsplash.com/photo-1533158326339-7f3cf2404354?auto=format&fit=crop&q=80&w=800'
+  },
+  {
+    id: 'saesoon-lounge',
+    name: '새순라운지 (1층)',
+    description: '카페 형식의 소통 공간으로 주민 누구나 자유롭게 대화하고 협력할 수 있습니다.',
+    capacity: 25,
+    facilities: ['에스프레소 머신', '바 테이블', '무선 충전기', '정수기'],
+    category: 'cafe',
+    icon: Coffee,
+    imageUrl: 'https://images.unsplash.com/photo-1554118811-1e0d58224f24?auto=format&fit=crop&q=80&w=800'
   }
 ];
 
@@ -138,14 +171,23 @@ const formatDate = (date: Date): string => {
   return date.toISOString().split('T')[0];
 };
 
+const getDaysInMonth = (year: number, month: number) => {
+  return new Date(year, month + 1, 0).getDate();
+};
+
+const getFirstDayOfMonth = (year: number, month: number) => {
+  return new Date(year, month, 1).getDay();
+};
+
 // --- Simulated Cloud Service ---
 const CloudService = {
-  delay: () => new Promise(resolve => setTimeout(resolve, 800)),
+  delay: () => new Promise(resolve => setTimeout(resolve, 600)),
 
   getReservations: async (): Promise<Reservation[]> => {
     await CloudService.delay();
     const data = localStorage.getItem('ieumnuri_reservations');
-    return data ? JSON.parse(data) : [];
+    const reservations: Reservation[] = data ? JSON.parse(data) : [];
+    return reservations.sort((a, b) => b.createdAt - a.createdAt);
   },
 
   saveReservation: async (res: Reservation): Promise<void> => {
@@ -158,7 +200,7 @@ const CloudService = {
   updateStatus: async (id: string, status: Reservation['status']): Promise<void> => {
     await CloudService.delay();
     const all = await CloudService.getReservations();
-    const updated = all.map(r => r.id === id ? { ...r, status, isRead: false } : r);
+    const updated = all.map(r => r.id === id ? { ...r, status } : r);
     localStorage.setItem('ieumnuri_reservations', JSON.stringify(updated));
   },
 
@@ -171,77 +213,10 @@ const CloudService = {
   saveSettings: async (settings: UserSettings): Promise<void> => {
     await CloudService.delay();
     localStorage.setItem('ieumnuri_settings', JSON.stringify(settings));
-  },
-
-  getAnnouncements: async (): Promise<Announcement[]> => {
-    await CloudService.delay();
-    const data = localStorage.getItem('ieumnuri_announcements');
-    return data ? JSON.parse(data) : [];
-  },
-
-  saveAnnouncement: async (ann: Announcement): Promise<void> => {
-    await CloudService.delay();
-    const all = await CloudService.getAnnouncements();
-    all.unshift(ann); // Newest first
-    localStorage.setItem('ieumnuri_announcements', JSON.stringify(all));
   }
 };
 
-// --- Components ---
-
-const Sidebar = ({ activeTab, setActiveTab, unreadCount }: { activeTab: string, setActiveTab: (t: string) => void, unreadCount: number }) => {
-  const menuItems = [
-    { id: 'dashboard', label: '대시보드', icon: LayoutDashboard },
-    { id: 'spaces', label: '공간 둘러보기', icon: MapPin },
-    { id: 'reservations', label: '예약 현황', icon: CalendarIcon, badge: unreadCount },
-    { id: 'ai-chat', label: 'AI 매니저', icon: MessageSquare },
-    { id: 'settings', label: '설정', icon: SettingsIcon },
-    { id: 'admin', label: '관리자', icon: ShieldCheck },
-  ];
-
-  return (
-    <aside className="w-64 bg-campus-green text-white h-screen fixed left-0 top-0 p-6 hidden md:block shadow-2xl z-40">
-      <div className="mb-10 flex items-center space-x-2">
-        <div className="p-1.5 bg-white/10 rounded-lg"><Cloud size={20} className="text-green-300" /></div>
-        <div>
-          <h1 className="text-2xl font-black tracking-tight italic">이음누리</h1>
-          <p className="text-[10px] text-green-300/80 font-bold uppercase tracking-widest">Connected</p>
-        </div>
-      </div>
-      <nav className="space-y-2">
-        {menuItems.map(item => (
-          <button
-            key={item.id}
-            onClick={() => setActiveTab(item.id)}
-            className={`w-full flex items-center justify-between px-4 py-3.5 rounded-2xl transition-all ${
-              activeTab === item.id ? 'bg-white/20 shadow-lg scale-[1.02]' : 'hover:bg-white/10 opacity-70 hover:opacity-100'
-            }`}
-          >
-            <div className="flex items-center space-x-3">
-              <item.icon size={18} />
-              <span className="font-bold text-sm">{item.label}</span>
-            </div>
-            {item.badge && item.badge > 0 && (
-              <span className="bg-orange-500 text-white text-[10px] font-black px-2 py-0.5 rounded-full shadow-md">
-                {item.badge}
-              </span>
-            )}
-          </button>
-        ))}
-      </nav>
-    </aside>
-  );
-};
-
-const LoadingState = ({ message = "데이터를 불러오는 중입니다..." }) => (
-  <div className="flex flex-col items-center justify-center py-20 space-y-4 animate-in fade-in duration-500">
-    <div className="relative">
-      <Loader2 size={48} className="text-campus-green animate-spin opacity-20" />
-      <Loader2 size={48} className="text-campus-green animate-spin absolute top-0 left-0" style={{ animationDuration: '1.5s' }} />
-    </div>
-    <p className="text-gray-400 font-bold text-sm">{message}</p>
-  </div>
-);
+// --- Upgraded Reservation Modal ---
 
 const ReservationModal = ({ space, onClose, onReserved }: { space: Space, onClose: () => void, onReserved: () => void }) => {
   const [formData, setFormData] = useState({
@@ -256,83 +231,100 @@ const ReservationModal = ({ space, onClose, onReserved }: { space: Space, onClos
   const [existingReservations, setExistingReservations] = useState<Reservation[]>([]);
   const [isRepeatUser, setIsRepeatUser] = useState(false);
 
+  const [currentMonth, setCurrentMonth] = useState(new Date().getMonth());
+  const [currentYear, setCurrentYear] = useState(new Date().getFullYear());
+
   const START_HOUR = 9;
-  const END_HOUR = 22;
+  const END_HOUR = 21;
 
   useEffect(() => {
     const fetchConflicts = async () => {
       const all = await CloudService.getReservations();
-      const userDayRes = all.filter(r => 
-        r.userName.trim().toLowerCase() === formData.userName.trim().toLowerCase() && 
-        r.date === formData.date &&
+      // 유저의 중복 예약 여부 체크 (당일 기준)
+      const userRes = all.filter(r => 
+        r.userName.trim() !== '' && 
+        r.userName === formData.userName && 
+        r.date === formData.date && 
         r.status !== 'cancelled'
       );
-      setIsRepeatUser(userDayRes.length > 0);
+      setIsRepeatUser(userRes.length > 0);
+      
       const confirmed = all.filter(r => r.spaceId === space.id && r.date === formData.date && r.status === 'confirmed');
       setExistingReservations(confirmed);
     };
-    if (formData.userName.length > 1 || formData.date) fetchConflicts();
+    fetchConflicts();
   }, [formData.date, formData.userName, space.id]);
 
-  const slots = useMemo(() => {
-    const s = [];
+  const timeSlots = useMemo(() => {
+    const slots = [];
     for (let h = START_HOUR; h < END_HOUR; h++) {
-      s.push(`${h.toString().padStart(2, '0')}:00`);
-      s.push(`${h.toString().padStart(2, '0')}:30`);
+      slots.push(`${h.toString().padStart(2, '0')}:00`);
+      slots.push(`${h.toString().padStart(2, '0')}:30`);
     }
-    return s;
+    return slots;
   }, []);
 
-  const isSlotBooked = (time: string) => {
+  const getSlotStatus = (time: string) => {
     const tMin = timeToMinutes(time);
-    return existingReservations.some(res => {
+    const isBooked = existingReservations.some(res => {
       const resStart = timeToMinutes(res.startTime);
       const resEnd = timeToMinutes(res.endTime);
       return tMin >= resStart && tMin < resEnd;
     });
+    if (isBooked) return 'booked';
+
+    const selectedStart = timeToMinutes(formData.startTime);
+    const selectedEnd = timeToMinutes(formData.endTime);
+    if (tMin >= selectedStart && tMin < selectedEnd) return 'selected';
+
+    return 'available';
   };
 
-  const isSelectionInvalid = () => {
-    const start = timeToMinutes(formData.startTime);
-    const end = timeToMinutes(formData.endTime);
-    const duration = end - start;
-    if (duration <= 0) return "종료 시간은 시작 시간보다 늦어야 합니다.";
-    if (!isRepeatUser && duration > 120) return "초기 예약은 최대 2시간까지 가능합니다.";
-    if (isRepeatUser && duration > 60) return "추가 예약은 1시간까지만 가능합니다.";
-    
-    const hasOverlap = existingReservations.some(res => {
-      const resStart = timeToMinutes(res.startTime);
-      const resEnd = timeToMinutes(res.endTime);
-      return Math.max(start, resStart) < Math.min(end, resEnd);
-    });
-    if (hasOverlap) return "해당 시간에 이미 예약이 존재합니다.";
-    
-    return null;
+  const handleDayClick = (day: number) => {
+    const selectedDate = new Date(currentYear, currentMonth, day);
+    if (selectedDate < new Date(new Date().setHours(0,0,0,0))) return;
+    setFormData({ ...formData, date: formatDate(selectedDate) });
   };
 
   const handleSlotClick = (time: string) => {
-    if (isSlotBooked(time)) return;
-    
     const tMin = timeToMinutes(time);
-    const defaultDuration = isRepeatUser ? 60 : 120;
-    setFormData({
-      ...formData,
-      startTime: time,
-      endTime: minutesToTime(Math.min(tMin + defaultDuration, END_HOUR * 60))
-    });
+    if (getSlotStatus(time) === 'booked') return;
+
+    // 최소 예약 시간: 1시간, 첫 방문 예약 시 최대 2시간 권장
+    const duration = isRepeatUser ? 60 : 120;
+    let endMin = tMin + duration;
+
+    // 예약 가능 범위 체크 (중복 예약 방지)
+    const nextBooking = existingReservations
+      .map(r => timeToMinutes(r.startTime))
+      .filter(start => start > tMin)
+      .sort((a, b) => a - b)[0];
+
+    if (nextBooking && endMin > nextBooking) {
+      endMin = nextBooking;
+    }
+
+    // 마감 시간 체크
+    endMin = Math.min(endMin, END_HOUR * 60);
+
+    // 최소 1시간 예약 룰 체크 (버튼 클릭 시 자동으로 조절)
+    if (endMin - tMin < 60) {
+      setError("이후 예약으로 인해 최소 예약 시간(1시간) 확보가 불가능한 슬롯입니다.");
+      setTimeout(() => setError(null), 3000);
+      return;
+    }
+
+    setFormData({ ...formData, startTime: time, endTime: minutesToTime(endMin) });
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const validationError = isSelectionInvalid();
-    if (validationError) { setError(validationError); return; }
     if (!formData.userName.trim()) { setError('성함 또는 단체명을 입력하세요.'); return; }
+    if (!formData.purpose.trim()) { setError('사용 목적을 입력하세요.'); return; }
     
     setIsSubmitting(true);
-    setError(null);
-
     try {
-      const newRes: Reservation = {
+      await CloudService.saveReservation({
         id: Math.random().toString(36).substr(2, 9),
         spaceId: space.id,
         userName: formData.userName,
@@ -342,8 +334,7 @@ const ReservationModal = ({ space, onClose, onReserved }: { space: Space, onClos
         endTime: formData.endTime,
         status: 'pending',
         createdAt: Date.now()
-      };
-      await CloudService.saveReservation(newRes);
+      });
       onReserved();
     } catch (err: any) {
       setError(err.message);
@@ -352,185 +343,218 @@ const ReservationModal = ({ space, onClose, onReserved }: { space: Space, onClos
     }
   };
 
+  const daysInMonth = getDaysInMonth(currentYear, currentMonth);
+  const firstDay = getFirstDayOfMonth(currentYear, currentMonth);
+  const monthNames = ["1월", "2월", "3월", "4월", "5월", "6월", "7월", "8월", "9월", "10월", "11월", "12월"];
+
+  const durationText = useMemo(() => {
+    const start = timeToMinutes(formData.startTime);
+    const end = timeToMinutes(formData.endTime);
+    const diff = end - start;
+    const h = Math.floor(diff / 60);
+    const m = diff % 60;
+    return `${h > 0 ? h + '시간 ' : ''}${m > 0 ? m + '분' : ''}`;
+  }, [formData.startTime, formData.endTime]);
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 overflow-y-auto">
-      <div className="bg-white rounded-[3rem] w-full max-w-2xl overflow-hidden shadow-2xl animate-in fade-in zoom-in-95 duration-300 my-8">
-        <div className="bg-campus-green p-8 text-white relative">
-          <div className="flex items-center space-x-4 mb-2">
-            <div className="p-3 bg-white/20 rounded-2xl"><MapPin size={28} /></div>
-            <div>
-              <h2 className="text-2xl font-black tracking-tight">{space.name}</h2>
-              <p className="text-sm text-green-100 font-medium opacity-80 italic">서버 실시간 동기화 중</p>
-            </div>
-          </div>
-          <button onClick={onClose} className="absolute top-6 right-6 p-2 rounded-full hover:bg-white/10 text-white/70 transition-all"><X size={24} /></button>
-        </div>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-md p-4 overflow-y-auto">
+      <div className="bg-white rounded-[3.5rem] w-full max-w-5xl overflow-hidden shadow-2xl animate-in zoom-in-95 duration-500 flex flex-col md:flex-row h-full max-h-[92vh]">
         
-        <form onSubmit={handleSubmit} className="p-8 md:p-10 space-y-8">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-            <div className="space-y-6">
-              <div className="space-y-4">
-                <div className="flex items-center justify-between border-b border-gray-100 pb-2">
-                    <div className="flex items-center space-x-2 text-campus-green font-black text-xs uppercase tracking-widest">신청자 정보</div>
-                    {formData.userName.length > 1 && (
-                        <span className={`text-[10px] font-black px-3 py-1 rounded-full ${isRepeatUser ? 'bg-orange-100 text-orange-600' : 'bg-blue-100 text-blue-600'}`}>
-                            {isRepeatUser ? '추가 예약 (1시간)' : '초기 예약 (2시간)'}
-                        </span>
-                    )}
-                </div>
-                <input required disabled={isSubmitting} className="w-full px-5 py-4 bg-gray-50 border-2 border-transparent focus:border-campus-green focus:bg-white outline-none text-gray-900 rounded-2xl transition-all font-bold shadow-sm" value={formData.userName} onChange={e => setFormData({...formData, userName: e.target.value})} placeholder="성함 또는 단체명" />
-                <textarea required disabled={isSubmitting} className="w-full px-5 py-4 bg-gray-50 border-2 border-transparent focus:border-campus-green focus:bg-white outline-none h-32 resize-none text-gray-900 rounded-2xl transition-all font-bold shadow-sm" value={formData.purpose} onChange={e => setFormData({...formData, purpose: e.target.value})} placeholder="사용 목적 (예: 소그룹 독서 모임)" />
-              </div>
-              
-              <div className="space-y-4">
-                <div className="flex items-center space-x-2 text-campus-green font-black text-xs uppercase tracking-widest border-b border-gray-100 pb-2">날짜 선택</div>
-                <input type="date" required disabled={isSubmitting} className="w-full px-5 py-4 bg-white border-2 border-gray-100 rounded-2xl focus:border-campus-green outline-none text-gray-900 font-bold shadow-sm" value={formData.date} onChange={e => setFormData({...formData, date: e.target.value})} />
+        {/* Left: Interactive Calendar */}
+        <div className="w-full md:w-[40%] bg-campus-green p-8 text-white flex flex-col">
+          <div className="mb-8 flex items-center justify-between">
+             <div className="flex items-center space-x-3">
+               <div className="p-2.5 bg-white/10 rounded-2xl"><CalendarIcon size={20} /></div>
+               <h2 className="text-xl font-black">날짜 선택</h2>
+             </div>
+          </div>
+
+          <div className="flex-1 flex flex-col justify-center">
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-lg font-bold tracking-tight">{currentYear}년 {monthNames[currentMonth]}</h3>
+              <div className="flex space-x-1">
+                <button onClick={() => { if (currentMonth === 0) { setCurrentMonth(11); setCurrentYear(y => y-1); } else setCurrentMonth(m => m-1); }} className="p-1.5 hover:bg-white/10 rounded-full transition-colors"><ChevronLeft size={18} /></button>
+                <button onClick={() => { if (currentMonth === 11) { setCurrentMonth(0); setCurrentYear(y => y+1); } else setCurrentMonth(m => m+1); }} className="p-1.5 hover:bg-white/10 rounded-full transition-colors"><ChevronRight size={18} /></button>
               </div>
             </div>
 
+            <div className="grid grid-cols-7 gap-1 text-center mb-2 opacity-40 text-[9px] font-black uppercase tracking-widest">
+              {['일', '월', '화', '수', '목', '금', '토'].map(d => <div key={d}>{d}</div>)}
+            </div>
+
+            <div className="grid grid-cols-7 gap-1">
+              {Array.from({ length: firstDay }).map((_, i) => <div key={`empty-${i}`} />)}
+              {Array.from({ length: daysInMonth }).map((_, i) => {
+                const day = i + 1;
+                const dateStr = formatDate(new Date(currentYear, currentMonth, day));
+                const isSelected = formData.date === dateStr;
+                const isPast = new Date(currentYear, currentMonth, day) < new Date(new Date().setHours(0,0,0,0));
+                
+                return (
+                  <button key={day} disabled={isPast} onClick={() => handleDayClick(day)}
+                    className={`h-9 w-9 md:h-11 md:w-11 rounded-xl flex items-center justify-center text-xs font-black transition-all ${
+                      isSelected ? 'bg-white text-campus-green shadow-xl scale-110' : 
+                      isPast ? 'opacity-10 cursor-not-allowed' : 'hover:bg-white/10'
+                    }`}>{day}</button>
+                );
+              })}
+            </div>
+          </div>
+
+          <div className="mt-8 p-5 bg-white/10 rounded-3xl border border-white/10 space-y-3">
+            <div className="flex items-center space-x-3">
+              <div className="p-2 bg-white/20 rounded-xl"><space.icon size={18} /></div>
+              <p className="font-bold">{space.name}</p>
+            </div>
+            <p className="text-[11px] opacity-60 font-medium leading-relaxed">{space.description}</p>
+            <div className="flex flex-wrap gap-2 pt-2">
+              {space.facilities.map(f => <span key={f} className="text-[9px] font-black bg-white/5 px-2 py-0.5 rounded-md border border-white/10">{f}</span>)}
+            </div>
+          </div>
+        </div>
+
+        {/* Right: Smart Time Slots & Form */}
+        <div className="flex-1 bg-white p-8 flex flex-col overflow-y-auto">
+          <div className="flex items-center justify-between mb-8">
+            <div className="flex items-center space-x-4">
+               <div className="p-3 bg-gray-50 text-campus-green rounded-2xl"><Clock size={24} /></div>
+               <div>
+                  <h3 className="text-xl font-black text-gray-800 tracking-tight">시간 및 정보 입력</h3>
+                  <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">{formData.date} - 동네배움터 스마트 예약</p>
+               </div>
+            </div>
+            <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-full transition-all text-gray-400"><X size={24} /></button>
+          </div>
+
+          <form onSubmit={handleSubmit} className="space-y-8 flex-1">
+            {/* Time Slot Selector */}
             <div className="space-y-4">
-              <div className="flex items-center justify-between border-b border-gray-100 pb-2">
-                <div className="flex items-center space-x-2 text-campus-green font-black text-xs uppercase tracking-widest">시간 슬롯 선택</div>
-                <div className="flex items-center space-x-2 text-[10px] font-bold text-gray-400">
-                  <span className="flex items-center"><span className="w-2 h-2 bg-red-400 rounded-full mr-1"></span>예약됨</span>
-                  <span className="flex items-center"><span className="w-2 h-2 bg-campus-green rounded-full mr-1"></span>선택됨</span>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-2">
+                  <span className="text-[10px] font-black text-campus-green uppercase tracking-widest">Time Slots</span>
+                  <div className="flex items-center space-x-2 text-[9px] font-bold text-gray-400 ml-4">
+                    <div className="flex items-center space-x-1"><div className="w-2 h-2 rounded-sm bg-gray-100 border border-gray-200"></div><span>가능</span></div>
+                    <div className="flex items-center space-x-1"><div className="w-2 h-2 rounded-sm bg-campus-green"></div><span>선택됨</span></div>
+                    <div className="flex items-center space-x-1"><div className="w-2 h-2 rounded-sm bg-gray-200"></div><span>예약됨</span></div>
+                  </div>
                 </div>
               </div>
-              
-              <div className="grid grid-cols-4 gap-2 max-h-[320px] overflow-y-auto pr-2 custom-scrollbar">
-                {slots.map(time => {
-                  const booked = isSlotBooked(time);
-                  const selected = timeToMinutes(time) >= timeToMinutes(formData.startTime) && timeToMinutes(time) < timeToMinutes(formData.endTime);
-                  
+
+              <div className="grid grid-cols-4 sm:grid-cols-6 gap-1.5 p-1 bg-gray-50/50 rounded-2xl border border-gray-100">
+                {timeSlots.map(time => {
+                  const status = getSlotStatus(time);
                   return (
-                    <button
-                      key={time}
-                      type="button"
-                      disabled={booked || isSubmitting}
-                      onClick={() => handleSlotClick(time)}
-                      className={`py-2 rounded-xl text-[11px] font-black transition-all border-2 ${
-                        selected 
-                          ? 'bg-campus-green text-white border-campus-green shadow-lg scale-95' 
-                          : booked 
-                            ? 'bg-gray-100 text-gray-300 border-transparent cursor-not-allowed opacity-50' 
-                            : 'bg-white text-gray-600 border-gray-100 hover:border-campus-green hover:text-campus-green shadow-sm'
-                      }`}
-                    >
+                    <button key={time} type="button" disabled={status === 'booked'} onClick={() => handleSlotClick(time)}
+                      className={`relative py-3 rounded-xl text-[10px] font-black transition-all border-2 flex flex-col items-center justify-center overflow-hidden ${
+                        status === 'selected' ? 'bg-campus-green text-white border-campus-green shadow-md scale-[0.98]' :
+                        status === 'booked' ? 'bg-gray-200/50 text-gray-400 border-transparent cursor-not-allowed opacity-40' :
+                        'bg-white text-gray-600 border-white hover:border-campus-green hover:text-campus-green'
+                      }`}>
+                      {status === 'booked' && <div className="absolute inset-0 flex items-center justify-center rotate-12 opacity-10 font-black text-xs">BOOKED</div>}
                       {time}
                     </button>
                   );
                 })}
               </div>
 
-              <div className="bg-gray-50 p-4 rounded-2xl border border-gray-100 flex items-center justify-between">
-                <div className="flex items-center space-x-3 text-xs font-bold text-gray-500">
-                  <Clock size={14} />
-                  <span>{formData.startTime} - {formData.endTime}</span>
+              <div className="bg-campus-green/[0.03] p-5 rounded-3xl flex items-center justify-between border border-campus-green/10 shadow-sm relative overflow-hidden">
+                <div className="absolute top-0 right-0 p-4 opacity-[0.05] pointer-events-none"><History size={64} className="text-campus-green" /></div>
+                <div className="flex items-center space-x-4">
+                  <div className="p-3 bg-white rounded-2xl shadow-sm text-campus-green"><Timer size={20} /></div>
+                  <div>
+                    <p className="text-[10px] font-black text-campus-green uppercase tracking-widest mb-0.5">Selected Duration</p>
+                    <h4 className="text-lg font-black text-gray-800">{formData.startTime} ~ {formData.endTime} <span className="text-campus-green font-bold ml-1">({durationText})</span></h4>
+                  </div>
                 </div>
-                <div className="flex items-center space-x-2">
-                  <button type="button" onClick={() => {
-                    const s = timeToMinutes(formData.startTime);
-                    const e = timeToMinutes(formData.endTime);
-                    setFormData({...formData, endTime: minutesToTime(Math.max(s + 30, e - 30))});
-                  }} className="p-1 hover:bg-gray-200 rounded-lg text-gray-400"><Minus size={14} /></button>
-                  <button type="button" onClick={() => {
-                    const e = timeToMinutes(formData.endTime);
-                    setFormData({...formData, endTime: minutesToTime(Math.min(END_HOUR * 60, e + 30))});
-                  }} className="p-1 hover:bg-gray-200 rounded-lg text-gray-400"><Plus size={14} /></button>
-                </div>
+                {isRepeatUser ? (
+                  <div className="flex flex-col items-end">
+                    <span className="text-[9px] bg-orange-100 text-orange-600 px-2 py-0.5 rounded-full font-black mb-1 uppercase tracking-tight">Repeat User</span>
+                    <span className="text-[8px] text-gray-400 font-bold">1시간 단위 예약</span>
+                  </div>
+                ) : (
+                  <div className="flex flex-col items-end">
+                    <span className="text-[9px] bg-blue-100 text-blue-600 px-2 py-0.5 rounded-full font-black mb-1 uppercase tracking-tight">New User</span>
+                    <span className="text-[8px] text-gray-400 font-bold">기본 2시간 예약</span>
+                  </div>
+                )}
               </div>
             </div>
-          </div>
 
-          {error && (
-            <div className="bg-red-50 p-4 rounded-2xl border border-red-100 flex items-center space-x-3 text-red-600 animate-bounce-short">
-              <AlertCircle size={20} className="shrink-0" />
-              <p className="text-sm font-black tracking-tight">{error}</p>
+            {/* Information Inputs */}
+            <div className="space-y-5">
+              <div className="relative group">
+                <div className="absolute top-1/2 -translate-y-1/2 left-5 text-gray-300 group-focus-within:text-campus-green transition-colors"><User size={18} /></div>
+                <input required className="w-full pl-12 pr-5 py-4.5 bg-gray-50 border-2 border-transparent focus:border-campus-green focus:bg-white outline-none rounded-2xl font-bold transition-all shadow-sm text-sm" placeholder="성함 또는 단체명" value={formData.userName} onChange={e => setFormData({...formData, userName: e.target.value})} />
+              </div>
+              <div className="relative group">
+                <div className="absolute top-6 left-5 text-gray-300 group-focus-within:text-campus-green transition-colors"><FileText size={18} /></div>
+                <textarea required className="w-full pl-12 pr-5 py-5 bg-gray-50 border-2 border-transparent focus:border-campus-green focus:bg-white outline-none h-28 resize-none rounded-2xl font-bold transition-all shadow-sm text-sm leading-relaxed" placeholder="사용 목적 (예: 디지털 행정 강좌 스터디 모임)" value={formData.purpose} onChange={e => setFormData({...formData, purpose: e.target.value})} />
+              </div>
             </div>
-          )}
 
-          <div className="pt-4 flex space-x-4">
-            <button type="button" onClick={onClose} disabled={isSubmitting} className="flex-1 py-5 rounded-[1.5rem] font-black text-gray-400 bg-gray-100 hover:bg-gray-200 transition-all uppercase tracking-widest text-xs">Close</button>
-            <button type="submit" disabled={isSubmitting} className="flex-[2] bg-campus-green text-white py-5 rounded-[1.5rem] font-black text-lg shadow-xl hover:shadow-2xl transition-all disabled:opacity-50 flex items-center justify-center space-x-3 active:scale-95">
-              {isSubmitting ? <><Loader2 className="animate-spin" size={24} /><span>처리 중...</span></> : <span>예약 신청 보내기</span>}
+            {error && (
+              <div className="p-4 bg-red-50 text-red-600 rounded-2xl text-[11px] font-black flex items-center space-x-2 animate-in slide-in-from-top-2">
+                <AlertCircle size={16} />
+                <span>{error}</span>
+              </div>
+            )}
+
+            <button type="submit" disabled={isSubmitting} className="w-full bg-campus-green text-white py-5 rounded-3xl font-black text-lg shadow-2xl shadow-green-900/20 hover:scale-[1.01] active:scale-95 transition-all disabled:opacity-50 flex items-center justify-center space-x-4">
+              {isSubmitting ? <Loader2 className="animate-spin" /> : <><span>예약 신청서 제출</span><Send size={18} /></>}
             </button>
-          </div>
-        </form>
+            <p className="text-center text-[10px] text-gray-300 font-medium">관리자 확인 후 승인 완료 알림이 발송됩니다.</p>
+          </form>
+        </div>
       </div>
     </div>
   );
 };
 
-const DashboardView = ({ 
-  reservations, 
-  spaces, 
-  announcements, 
-  onReserveClick 
-}: { 
-  reservations: Reservation[], 
-  spaces: Space[], 
-  announcements: Announcement[],
-  onReserveClick: () => void 
-}) => {
+// --- Dashboard & Other Views remain mostly the same ---
+
+const DashboardView = ({ reservations, spaces, onReserveClick }: { reservations: Reservation[], spaces: Space[], onReserveClick: () => void }) => {
   const pendingCount = reservations.filter(r => r.status === 'pending').length;
   const confirmedCount = reservations.filter(r => r.status === 'confirmed').length;
 
   return (
     <div className="animate-in fade-in duration-500 space-y-10">
-      <header className="space-y-2">
-        <h2 className="text-4xl font-black text-gray-800 tracking-tight">좋은 하루입니다, <span className="text-campus-green">이음누리</span>입니다.</h2>
-        <p className="text-gray-400 font-bold">오늘의 캠퍼스 현황을 한눈에 확인하세요.</p>
+      <header className="space-y-3">
+        <h2 className="text-4xl font-black text-gray-800 tracking-tight leading-tight">주민과 함께 숨쉬는<br/><span className="text-campus-green">이음누리 동네배움터</span>입니다.</h2>
+        <p className="text-gray-400 font-bold max-w-2xl leading-relaxed">새순은 지자체와 협력하여 주민들의 소통과 학습, 그리고 치유의 필요를 돌보는 디지털 스마트 복지 마당을 실천합니다.</p>
       </header>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="bg-white p-8 rounded-[2.5rem] shadow-sm border border-gray-100 flex flex-col justify-between hover:shadow-md transition-shadow">
-          <div className="w-12 h-12 bg-orange-50 text-orange-500 rounded-2xl flex items-center justify-center mb-6"><Clock size={24} /></div>
-          <div><p className="text-gray-400 font-bold text-[10px] uppercase mb-1 tracking-widest">대기 중인 예약</p><h3 className="text-3xl font-black text-gray-800">{pendingCount}건</h3></div>
+        <div className="bg-white p-8 rounded-[2.5rem] shadow-sm border border-gray-100 flex flex-col justify-between group hover:shadow-md transition-all">
+          <div className="w-12 h-12 bg-orange-50 text-orange-500 rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform"><Clock size={24} /></div>
+          <div><p className="text-gray-400 font-bold text-[10px] uppercase mb-1 tracking-widest">진행 중인 신청</p><h3 className="text-3xl font-black text-gray-800">{pendingCount}건</h3></div>
         </div>
-        <div className="bg-white p-8 rounded-[2.5rem] shadow-sm border border-gray-100 flex flex-col justify-between hover:shadow-md transition-shadow">
-          <div className="w-12 h-12 bg-green-50 text-campus-green rounded-2xl flex items-center justify-center mb-6"><CheckCircle2 size={24} /></div>
+        <div className="bg-white p-8 rounded-[2.5rem] shadow-sm border border-gray-100 flex flex-col justify-between group hover:shadow-md transition-all">
+          <div className="w-12 h-12 bg-green-50 text-campus-green rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform"><CheckCircle2 size={24} /></div>
           <div><p className="text-gray-400 font-bold text-[10px] uppercase mb-1 tracking-widest">승인된 예약</p><h3 className="text-3xl font-black text-gray-800">{confirmedCount}건</h3></div>
         </div>
-        <div className="bg-campus-green p-8 rounded-[2.5rem] shadow-xl text-white flex flex-col justify-between group cursor-pointer hover:scale-[1.02] transition-all" onClick={onReserveClick}>
-          <div className="w-12 h-12 bg-white/20 rounded-2xl flex items-center justify-center mb-6 group-hover:bg-white/30 transition-colors"><PlusCircle size={24} /></div>
-          <div><p className="text-green-100/70 font-bold text-[10px] uppercase mb-1 tracking-widest">새로운 시작</p><h3 className="text-2xl font-black">지금 예약하기</h3></div>
-        </div>
+        <button onClick={onReserveClick} className="bg-campus-green p-8 rounded-[2.5rem] shadow-xl text-white flex flex-col justify-between group hover:scale-[1.02] transition-all overflow-hidden relative">
+          <div className="absolute -right-4 -bottom-4 opacity-10 group-hover:scale-125 transition-transform"><CalendarIcon size={120} /></div>
+          <div className="w-12 h-12 bg-white/20 rounded-2xl flex items-center justify-center mb-6 group-hover:bg-white/30 transition-colors relative z-10"><PlusCircle size={24} /></div>
+          <div className="text-left relative z-10"><p className="text-green-100/70 font-bold text-[10px] uppercase mb-1 tracking-widest">Quick Access</p><h3 className="text-2xl font-black">공간 예약하기</h3></div>
+        </button>
       </div>
-
-      {announcements.length > 0 && (
-        <div className="space-y-6">
-          <div className="flex items-center space-x-2">
-            <Megaphone size={20} className="text-campus-green" />
-            <h3 className="text-xl font-black text-gray-800">캠퍼스 소식</h3>
-          </div>
-          <div className="flex space-x-6 overflow-x-auto pb-4 custom-scrollbar">
-            {announcements.slice(0, 3).map(ann => (
-              <div key={ann.id} className="min-w-[320px] bg-white p-8 rounded-[2.5rem] shadow-sm border border-gray-100 hover:border-campus-green transition-all group">
-                <div className="flex items-center justify-between mb-4">
-                  <span className="text-[10px] font-black text-gray-400 uppercase">{ann.date}</span>
-                  {ann.isImportant && <span className="bg-orange-100 text-orange-600 px-3 py-1 rounded-full text-[10px] font-black uppercase">Important</span>}
-                </div>
-                <h4 className="text-lg font-black text-gray-800 mb-3 group-hover:text-campus-green transition-colors">{ann.title}</h4>
-                <p className="text-gray-500 text-sm font-medium line-clamp-2 leading-relaxed">{ann.content}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
 
       <div className="space-y-6">
         <div className="flex items-center justify-between">
-          <h3 className="text-xl font-black text-gray-800">추천 공간</h3>
-          <button onClick={onReserveClick} className="text-sm font-black text-campus-green flex items-center space-x-1 hover:underline"><span>모두 보기</span><ChevronRight size={14} /></button>
+          <h3 className="text-xl font-black text-gray-800 flex items-center space-x-2"><Sparkles size={20} className="text-campus-green" /><span>배움과 치유의 공간</span></h3>
+          <button onClick={onReserveClick} className="text-sm font-black text-campus-green flex items-center space-x-1 hover:underline"><span>모든 공간 보기</span><ChevronRight size={14} /></button>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {spaces.slice(0, 2).map(space => (
-            <div key={space.id} className="relative h-56 rounded-[2.5rem] overflow-hidden group cursor-pointer shadow-lg" onClick={onReserveClick}>
-              <img src={space.imageUrl} className="absolute inset-0 w-full h-full object-cover group-hover:scale-110 transition-transform duration-1000" />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent p-8 flex flex-col justify-end">
-                <div className="mb-2"><span className="bg-white/20 backdrop-blur-md px-3 py-1 rounded-full text-[10px] font-black text-white uppercase">{space.category}</span></div>
-                <h4 className="text-white font-black text-xl mb-1">{space.name}</h4>
-                <p className="text-white/70 text-sm font-medium line-clamp-1 leading-relaxed">{space.description}</p>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          {spaces.slice(0, 3).map(space => (
+            <div key={space.id} className="relative h-72 rounded-[2.5rem] overflow-hidden group cursor-pointer shadow-lg border border-gray-100" onClick={onReserveClick}>
+              <img src={space.imageUrl} className="absolute inset-0 w-full h-full object-cover group-hover:scale-110 transition-transform duration-1000" alt={space.name} />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/95 via-black/20 to-transparent p-6 flex flex-col justify-end">
+                <div className="mb-2 flex items-center space-x-2">
+                   <span className="bg-white/20 backdrop-blur-md px-3 py-1 rounded-full text-[9px] font-black text-white uppercase">{space.category}</span>
+                   <space.icon size={14} className="text-white/60" />
+                </div>
+                <h4 className="text-white font-black text-xl mb-1 tracking-tight">{space.name}</h4>
+                <p className="text-white/60 text-[11px] font-medium line-clamp-2 leading-relaxed">{space.description}</p>
               </div>
             </div>
           ))}
@@ -540,9 +564,73 @@ const DashboardView = ({
   );
 };
 
+// --- Admin View ---
+
+const AdminView = ({ reservations, onUpdateStatus }: { reservations: Reservation[], onUpdateStatus: (id: string, status: Reservation['status']) => void }) => {
+  const [filter, setFilter] = useState<Reservation['status'] | 'all'>('all');
+  const filtered = reservations.filter(r => filter === 'all' ? true : r.status === filter);
+
+  return (
+    <div className="animate-in fade-in duration-500 space-y-8">
+      <header className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div><h2 className="text-3xl font-black text-gray-800 tracking-tight">관리자 관제 센터</h2><p className="text-gray-400 font-bold">주민들의 예약 신청을 검토하고 스마트하게 관리합니다.</p></div>
+        <div className="flex bg-white p-1 rounded-2xl border border-gray-100 shadow-sm">
+          {(['all', 'pending', 'confirmed', 'cancelled'] as const).map(f => (
+            <button key={f} onClick={() => setFilter(f)} className={`px-4 py-2 rounded-xl text-xs font-black transition-all ${filter === f ? 'bg-campus-green text-white shadow-md' : 'text-gray-400 hover:text-gray-600'}`}>{f === 'all' ? '전체' : f === 'pending' ? '대기' : f === 'confirmed' ? '승인' : '반려'}</button>
+          ))}
+        </div>
+      </header>
+      <div className="bg-white rounded-[2.5rem] shadow-sm border border-gray-100 overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full text-left">
+            <thead>
+              <tr className="bg-gray-50/50 border-b border-gray-50">
+                <th className="px-8 py-5 text-[10px] font-black text-campus-green uppercase tracking-widest">신청자/기관</th>
+                <th className="px-8 py-5 text-[10px] font-black text-campus-green uppercase tracking-widest">공간</th>
+                <th className="px-8 py-5 text-[10px] font-black text-campus-green uppercase tracking-widest">일시</th>
+                <th className="px-8 py-5 text-[10px] font-black text-campus-green uppercase tracking-widest text-right">상태 제어</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-50">
+              {filtered.map(res => (
+                <tr key={res.id} className="hover:bg-gray-50/30 transition-colors">
+                  <td className="px-8 py-6">
+                    <p className="font-black text-gray-800">{res.userName}</p>
+                    <p className="text-xs text-gray-400 font-medium truncate max-w-[200px]">{res.purpose}</p>
+                  </td>
+                  <td className="px-8 py-6 text-sm font-bold text-gray-600">{SPACES.find(s => s.id === res.spaceId)?.name}</td>
+                  <td className="px-8 py-6">
+                    <p className="text-sm font-bold text-gray-800">{res.date}</p>
+                    <p className="text-xs text-gray-400 font-medium">{res.startTime} - {res.endTime}</p>
+                  </td>
+                  <td className="px-8 py-6 text-right">
+                    <div className="flex justify-end items-center space-x-2">
+                       {res.status === 'pending' ? (
+                         <>
+                           <button onClick={() => onUpdateStatus(res.id, 'confirmed')} className="p-2.5 bg-green-50 text-green-600 rounded-xl hover:bg-green-600 hover:text-white transition-all shadow-sm"><Check size={18} /></button>
+                           <button onClick={() => onUpdateStatus(res.id, 'cancelled')} className="p-2.5 bg-red-50 text-red-600 rounded-xl hover:bg-red-600 hover:text-white transition-all shadow-sm"><Ban size={18} /></button>
+                         </>
+                       ) : (
+                         <span className={`px-4 py-1.5 rounded-full text-[10px] font-black uppercase ${res.status === 'confirmed' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>{res.status}</span>
+                       )}
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          {filtered.length === 0 && <div className="py-20 text-center text-gray-300 font-black">관리할 내역이 없습니다.</div>}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// --- AI Chat View ---
+
 const AIChatView = () => {
   const [messages, setMessages] = useState<{ role: 'user' | 'model', text: string }[]>([
-    { role: 'model', text: '안녕하세요! 이음누리 캠퍼스 AI 매니저입니다. 시설 안내나 예약 규칙에 대해 궁금한 점이 있으신가요?' }
+    { role: 'model', text: '안녕하세요! 새순이음누리 캠퍼스 스마트 매니저입니다. 동네배움터 강좌 안내나 공간 예약에 대해 궁금한 점을 말씀해주세요.' }
   ]);
   const [input, setInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
@@ -550,334 +638,224 @@ const AIChatView = () => {
   const handleSend = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!input.trim() || isTyping) return;
-    const userMessage = input.trim();
-    setInput('');
-    setMessages(prev => [...prev, { role: 'user', text: userMessage }]);
-    setIsTyping(true);
+    const userMsg = input; setInput(''); setMessages(m => [...m, { role: 'user', text: userMsg }]); setIsTyping(true);
     try {
       const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-      const response = await ai.models.generateContent({
-        model: 'gemini-3-flash-preview',
-        contents: userMessage,
-        config: {
-            systemInstruction: "당신은 '이음누리 캠퍼스'의 친절한 AI 매니저입니다. 공간 정보를 안내하고 예약을 돕습니다."
-        }
+      const res = await ai.models.generateContent({ 
+        model: 'gemini-3-flash-preview', 
+        contents: userMsg, 
+        config: { 
+          systemInstruction: "당신은 새순이음누리 캠퍼스의 AI 매니저입니다. 이곳은 구청과 협력하여 주민들에게 정보화, 건강, 인문학 강좌를 제공하는 '동네배움터'입니다. 공간(키즈누리, 비전누리, 강의실, 소그룹실, 루프탑, 새순라운지)에 대해 친절하게 안내하세요." 
+        } 
       });
-      setMessages(prev => [...prev, { role: 'model', text: response.text || "죄송합니다. 메시지를 처리하지 못했습니다." }]);
-    } catch (error) {
-      setMessages(prev => [...prev, { role: 'model', text: "네트워크 오류가 발생했습니다." }]);
-    } finally {
-      setIsTyping(false);
-    }
+      setMessages(m => [...m, { role: 'model', text: res.text || "죄송합니다. 오류가 발생했습니다." }]);
+    } catch { setMessages(m => [...m, { role: 'model', text: "네트워크 연결이 불안정합니다." }]); } finally { setIsTyping(false); }
   };
 
   return (
-    <div className="flex flex-col h-[calc(100vh-12rem)] bg-white rounded-[3rem] shadow-sm border border-gray-100 overflow-hidden animate-in fade-in duration-500">
+    <div className="flex flex-col h-[calc(100vh-12rem)] bg-white rounded-[3rem] shadow-sm border border-gray-100 overflow-hidden">
       <div className="p-8 border-b border-gray-50 flex items-center space-x-4 bg-green-50/20">
         <div className="w-12 h-12 bg-campus-green text-white rounded-2xl flex items-center justify-center shadow-lg shadow-green-200/50"><MessageSquare size={24} /></div>
         <div>
-          <h3 className="font-black text-gray-800 text-lg">AI 스마트 매니저</h3>
-          <p className="text-[10px] text-campus-green font-black flex items-center space-x-1.5 uppercase tracking-widest"><span className="w-2 h-2 bg-campus-green rounded-full animate-ping"></span><span>Online Assistance</span></p>
+          <h3 className="font-black text-gray-800 text-lg">AI 스마트 상담사</h3>
+          <p className="text-[10px] text-campus-green font-black flex items-center space-x-1.5 uppercase tracking-widest"><span className="w-2 h-2 bg-campus-green rounded-full animate-ping"></span><span>Assistant Ready</span></p>
         </div>
       </div>
-      <div className="flex-1 overflow-y-auto p-8 space-y-8">
-        {messages.map((msg, idx) => (
-          <div key={idx} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'} animate-in slide-in-from-bottom-2`}>
-            <div className={`max-w-[85%] px-6 py-4 rounded-[2rem] font-medium text-sm shadow-sm leading-relaxed ${msg.role === 'user' ? 'bg-campus-green text-white rounded-tr-none' : 'bg-gray-50 text-gray-700 rounded-tl-none border border-gray-100'}`}>
-              {msg.text}
+      <div className="flex-1 overflow-y-auto p-8 space-y-6">
+        {messages.map((m, i) => <div key={i} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}><div className={`max-w-[85%] px-6 py-4 rounded-[2rem] text-sm font-bold shadow-sm ${m.role === 'user' ? 'bg-campus-green text-white rounded-tr-none' : 'bg-gray-50 text-gray-700 rounded-tl-none border border-gray-100'}`}>{m.text}</div></div>)}
+        {isTyping && <div className="text-xs font-black text-gray-300 animate-pulse tracking-widest uppercase">AI Agent Thinking...</div>}
+      </div>
+      <form onSubmit={handleSend} className="p-6 bg-white border-t border-gray-50 flex items-center space-x-4">
+        <input value={input} onChange={e => setInput(e.target.value)} placeholder="강좌 일정이나 시설 정보를 물어보세요" className="flex-1 px-6 py-5 bg-gray-50 rounded-2xl font-bold outline-none border-2 border-transparent focus:border-campus-green transition-all shadow-inner" />
+        <button type="submit" className="p-5 bg-campus-green text-white rounded-2xl shadow-xl hover:bg-green-800 transition-all"><Send size={24} /></button>
+      </form>
+    </div>
+  );
+};
+
+// --- Welcome & Intro Views ---
+
+// Fix: Added missing SplashView component to show brand loading screen
+const SplashView = ({ onComplete }: { onComplete: () => void }) => {
+  useEffect(() => {
+    const timer = setTimeout(onComplete, 2500);
+    return () => clearTimeout(timer);
+  }, [onComplete]);
+
+  return (
+    <div className="fixed inset-0 bg-campus-green flex flex-col items-center justify-center text-white z-[100] animate-in fade-in duration-1000">
+      <div className="p-8 bg-white/10 backdrop-blur-xl rounded-[3rem] border border-white/20 shadow-2xl mb-10 animate-bounce">
+        <Church size={80} strokeWidth={1.5} />
+      </div>
+      <h1 className="text-5xl font-black italic tracking-tighter mb-4 scale-in-95 duration-700">이음누리</h1>
+      <div className="flex flex-col items-center space-y-2">
+        <p className="text-xs text-green-200 uppercase tracking-[0.4em] font-black animate-pulse">Saesoon Campus</p>
+        <div className="w-48 h-1 bg-white/10 rounded-full overflow-hidden mt-4">
+           <div className="h-full bg-white animate-progress"></div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// Fix: Added missing IntroView component to provide context to users
+const IntroView = ({ onEnter }: { onEnter: () => void }) => {
+  return (
+    <div className="fixed inset-0 bg-[#FDFBF7] flex items-center justify-center p-8 z-[90] animate-in slide-in-from-right-full duration-700">
+      <div className="max-w-6xl w-full grid md:grid-cols-2 gap-16 items-center">
+        <div className="space-y-10">
+          <div className="flex items-center space-x-4">
+            <div className="p-3 bg-campus-green text-white rounded-2xl shadow-xl"><Church size={36} /></div>
+            <div>
+              <h1 className="text-3xl font-black italic tracking-tighter text-campus-green">이음누리</h1>
+              <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Connect & Care Campus</p>
             </div>
           </div>
-        ))}
-        {isTyping && <div className="flex justify-start animate-pulse"><div className="bg-gray-50 px-6 py-4 rounded-[2rem] rounded-tl-none text-xs text-gray-400 font-black tracking-widest uppercase">Thinking...</div></div>}
-      </div>
-      <form onSubmit={handleSend} className="p-8 bg-white border-t border-gray-50 flex items-center space-x-4">
-        <input value={input} onChange={e => setInput(e.target.value)} placeholder="AI 매니저에게 질문하세요" className="flex-1 px-6 py-5 bg-gray-50 border-2 border-transparent focus:border-campus-green focus:bg-white outline-none rounded-[2rem] font-bold text-gray-900 shadow-inner transition-all" />
-        <button type="submit" disabled={!input.trim() || isTyping} className="p-5 bg-campus-green text-white rounded-[2rem] shadow-xl hover:bg-green-800 transition-all disabled:opacity-20"><Send size={24} /></button>
-      </form>
-    </div>
-  );
-};
-
-const SettingsView = () => {
-  const [settings, setSettings] = useState<UserSettings | null>(null);
-  const [isSaving, setIsSaving] = useState(false);
-  useEffect(() => { CloudService.getSettings().then(setSettings); }, []);
-  const handleSave = async () => {
-    if (!settings) return;
-    setIsSaving(true);
-    await CloudService.saveSettings(settings);
-    setIsSaving(false);
-    alert('설정이 안전하게 업데이트되었습니다.');
-  };
-  if (!settings) return <LoadingState />;
-  return (
-    <div className="max-w-2xl animate-in fade-in duration-500 space-y-10">
-        <header><h2 className="text-3xl font-black text-gray-800">사용자 환경 설정</h2><p className="text-gray-400 font-bold mt-1 text-sm">편리한 알림 설정을 통해 캠퍼스 소식을 빠르게 받아보세요.</p></header>
-        <div className="bg-white rounded-[3rem] p-10 shadow-sm border border-gray-100 space-y-10">
-            <div className="flex items-center justify-between p-8 bg-gray-50 rounded-[2.5rem] group cursor-pointer hover:bg-gray-100/50 transition-colors" onClick={() => setSettings({...settings, emailNotifications: !settings.emailNotifications})}>
-                <div className="flex items-center space-x-5">
-                    <div className="p-4 bg-white rounded-2xl shadow-sm text-blue-500 group-hover:scale-110 transition-transform"><Mail size={28} /></div>
-                    <div><h4 className="font-black text-gray-800 text-lg">이메일 알림</h4><p className="text-xs text-gray-400 font-bold mt-0.5">예약 승인/취소 상태를 메일로 수신</p></div>
-                </div>
-                <button className="text-campus-green transition-transform active:scale-90">{settings.emailNotifications ? <ToggleRight size={48} /> : <ToggleLeft size={48} className="text-gray-300" />}</button>
-            </div>
-            <div className="flex items-center justify-between p-8 bg-gray-50 rounded-[2.5rem] group cursor-pointer hover:bg-gray-100/50 transition-colors" onClick={() => setSettings({...settings, inAppNotifications: !settings.inAppNotifications})}>
-                <div className="flex items-center space-x-5">
-                    <div className="p-4 bg-white rounded-2xl shadow-sm text-orange-500 group-hover:scale-110 transition-transform"><Bell size={28} /></div>
-                    <div><h4 className="font-black text-gray-800 text-lg">실시간 알림</h4><p className="text-xs text-gray-400 font-bold mt-0.5">예약 상태 실시간 푸시</p></div>
-                </div>
-                <button className="text-campus-green transition-transform active:scale-90">{settings.inAppNotifications ? <ToggleRight size={48} /> : <ToggleLeft size={48} className="text-gray-300" />}</button>
-            </div>
-            <button onClick={handleSave} disabled={isSaving} className="w-full py-6 bg-campus-green text-white rounded-3xl font-black text-xl shadow-xl hover:bg-green-800 transition-all flex items-center justify-center space-x-2">
-                {isSaving ? <Loader2 size={24} className="animate-spin" /> : <><Save size={24} /><span>설정 저장</span></>}
+          <div className="space-y-6">
+            <h2 className="text-6xl font-black text-gray-800 leading-[1.05] tracking-tight">당신의 일상을<br/><span className="text-campus-green underline decoration-green-100 underline-offset-8">이음</span>으로 채우는<br/>스마트 배움터.</h2>
+            <p className="text-gray-400 font-bold leading-relaxed max-w-lg text-xl">
+              디지털 정보화부터 웰니스 건강까지, <br/>
+              주민 누구나 함께 배우고 소통하는 <br/>
+              지속 가능한 스마트 복지 마당입니다.
+            </p>
+          </div>
+          <div className="flex flex-col sm:flex-row gap-4">
+            <button onClick={onEnter} className="flex items-center justify-center space-x-4 bg-campus-green text-white px-12 py-6 rounded-3xl font-black text-2xl shadow-2xl shadow-green-900/20 hover:scale-105 active:scale-95 transition-all group">
+              <span>캠퍼스 입장하기</span>
+              <ArrowRight size={28} className="group-hover:translate-x-2 transition-transform" />
             </button>
+          </div>
         </div>
-    </div>
-  );
-};
-
-const AdminAnnouncementForm = ({ onSaved }: { onSaved: () => void }) => {
-  const [title, setTitle] = useState('');
-  const [content, setContent] = useState('');
-  const [isImportant, setIsImportant] = useState(false);
-  const [isSaving, setIsSaving] = useState(false);
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!title.trim() || !content.trim()) return;
-    setIsSaving(true);
-    const ann: Announcement = {
-      id: Math.random().toString(36).substr(2, 9),
-      title,
-      content,
-      date: formatDate(new Date()),
-      isImportant
-    };
-    await CloudService.saveAnnouncement(ann);
-    setTitle('');
-    setContent('');
-    setIsImportant(false);
-    setIsSaving(false);
-    onSaved();
-    alert('공지사항이 게시되었습니다.');
-  };
-
-  return (
-    <div className="bg-white p-10 rounded-[3rem] shadow-sm border border-gray-100 space-y-6 animate-in slide-in-from-right-4">
-      <div className="flex items-center space-x-3 text-campus-green">
-        <Megaphone size={24} />
-        <h3 className="text-xl font-black tracking-tight">새 공지사항 작성</h3>
+        <div className="hidden lg:block relative">
+           <div className="aspect-[4/5] rounded-[5rem] overflow-hidden shadow-[0_50px_100px_-20px_rgba(0,0,0,0.15)] rotate-2 border-[12px] border-white relative z-10">
+             <img src="https://images.unsplash.com/photo-1517245386807-bb43f82c33c4?auto=format&fit=crop&q=80&w=800" className="w-full h-full object-cover" alt="Community Space" />
+           </div>
+           <div className="absolute -bottom-10 -left-10 bg-white p-8 rounded-[2.5rem] shadow-2xl flex items-center space-x-6 -rotate-3 border border-gray-100 z-20">
+             <div className="p-4 bg-orange-50 text-orange-500 rounded-3xl shadow-inner"><Sparkles size={32} /></div>
+             <div>
+               <p className="text-[11px] font-black text-gray-400 uppercase tracking-[0.2em] mb-1">Empowering</p>
+               <p className="text-xl font-black text-gray-800 tracking-tight">새로운 배움의 시작</p>
+             </div>
+           </div>
+           <div className="absolute top-10 -right-10 w-48 h-48 bg-campus-green/10 rounded-full blur-3xl -z-10 animate-pulse"></div>
+        </div>
       </div>
-      <form onSubmit={handleSubmit} className="space-y-4">
-        <input 
-          required 
-          className="w-full px-6 py-4 bg-gray-50 border-2 border-transparent focus:border-campus-green focus:bg-white outline-none rounded-2xl font-bold text-gray-900 shadow-sm transition-all" 
-          placeholder="공지 제목" 
-          value={title} 
-          onChange={e => setTitle(e.target.value)} 
-        />
-        <textarea 
-          required 
-          className="w-full px-6 py-4 bg-gray-50 border-2 border-transparent focus:border-campus-green focus:bg-white outline-none rounded-2xl font-bold text-gray-900 shadow-sm h-32 resize-none transition-all" 
-          placeholder="내용을 입력하세요" 
-          value={content} 
-          onChange={e => setContent(e.target.value)} 
-        />
-        <div className="flex items-center justify-between px-4">
-          <label className="flex items-center space-x-3 cursor-pointer group">
-            <input 
-              type="checkbox" 
-              className="w-5 h-5 accent-campus-green rounded" 
-              checked={isImportant} 
-              onChange={e => setIsImportant(e.target.checked)} 
-            />
-            <span className="text-sm font-black text-gray-400 group-hover:text-orange-500 transition-colors">중요 공지로 표시</span>
-          </label>
-          <button 
-            type="submit" 
-            disabled={isSaving} 
-            className="px-8 py-4 bg-campus-green text-white rounded-2xl font-black shadow-lg hover:shadow-xl hover:scale-[1.02] transition-all disabled:opacity-50 flex items-center space-x-2"
-          >
-            {isSaving ? <Loader2 size={18} className="animate-spin" /> : <><Plus size={18} /><span>게시하기</span></>}
-          </button>
-        </div>
-      </form>
     </div>
   );
 };
+
+// --- Main App Component ---
 
 const App = () => {
+  const [viewStatus, setViewStatus] = useState<'splash' | 'intro' | 'main'>('splash');
   const [activeTab, setActiveTab] = useState('dashboard');
   const [reservations, setReservations] = useState<Reservation[]>([]);
-  const [announcements, setAnnouncements] = useState<Announcement[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedSpace, setSelectedSpace] = useState<Space | null>(null);
-  const [isAdminAuthenticated, setIsAdminAuthenticated] = useState(false);
-  const [adminPasswordInput, setAdminPasswordInput] = useState('');
-  const [adminView, setAdminView] = useState<'reservations' | 'announcements'>('reservations');
 
   const loadData = async () => {
     setIsLoading(true);
-    try {
-        const [resData, annData] = await Promise.all([
-          CloudService.getReservations(),
-          CloudService.getAnnouncements()
-        ]);
-        setReservations(resData);
-        setAnnouncements(annData);
-    } catch (e) {
-        console.error("Failed to load data");
-    } finally {
-        setIsLoading(false);
-    }
+    const data = await CloudService.getReservations();
+    setReservations(data);
+    setIsLoading(false);
   };
 
-  useEffect(() => {
+  useEffect(() => { if (viewStatus === 'main') loadData(); }, [viewStatus, activeTab]);
+
+  const handleUpdateStatus = async (id: string, status: Reservation['status']) => {
+    await CloudService.updateStatus(id, status);
     loadData();
-  }, [activeTab]);
-
-  const refreshData = () => {
-    loadData();
-    setSelectedSpace(null);
-    if (activeTab === 'spaces') setActiveTab('reservations');
   };
 
-  const handleAdminAuth = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (adminPasswordInput === '1225') {
-      setIsAdminAuthenticated(true);
-      setAdminPasswordInput('');
-    } else {
-      alert('비밀번호가 올바르지 않습니다.');
-    }
-  };
+  // Fix: Conditional rendering for Splash and Intro views
+  if (viewStatus === 'splash') return <SplashView onComplete={() => setViewStatus('intro')} />;
+  if (viewStatus === 'intro') return <IntroView onEnter={() => setViewStatus('main')} />;
+
+  const items = [
+    { id: 'dashboard', label: '대시보드', icon: LayoutDashboard },
+    { id: 'spaces', label: '공간 둘러보기', icon: MapPin },
+    { id: 'reservations', label: '나의 예약', icon: CalendarIcon },
+    { id: 'ai-chat', label: 'AI 상담', icon: MessageSquare },
+    { id: 'admin', label: '관리자 센터', icon: ShieldCheck, badge: reservations.filter(r => r.status === 'pending').length },
+  ];
 
   return (
-    <div className="min-h-screen flex bg-[#FDFBF7]">
-      <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} unreadCount={reservations.filter(r => r.status === 'pending').length} />
-      
+    <div className="min-h-screen flex bg-[#FDFBF7] animate-in fade-in duration-700">
+      <aside className="w-64 bg-campus-green text-white h-screen fixed left-0 top-0 p-6 hidden md:block shadow-2xl z-40">
+        <div className="mb-10 flex items-center space-x-3"><div className="p-1.5 bg-white rounded-xl text-campus-green shadow-lg shadow-black/10"><Church size={28} /></div><div><h1 className="text-xl font-black italic tracking-tighter">이음누리</h1><p className="text-[8px] text-green-300 uppercase tracking-widest font-black">Saesoon Campus</p></div></div>
+        <nav className="space-y-2">
+          {items.map(i => (
+            <button key={i.id} onClick={() => setActiveTab(i.id)} className={`w-full flex items-center justify-between px-4 py-3.5 rounded-2xl transition-all ${activeTab === i.id ? 'bg-white/20 shadow-lg scale-[1.02]' : 'hover:bg-white/10 opacity-70 hover:opacity-100'}`}>
+              <div className="flex items-center space-x-3"><i.icon size={18} /><span className="font-bold text-sm">{i.label}</span></div>
+              {i.badge && i.badge > 0 ? <span className="bg-orange-500 text-white text-[10px] font-black px-2 py-0.5 rounded-full shadow-md">{i.badge}</span> : null}
+            </button>
+          ))}
+        </nav>
+        <div className="absolute bottom-10 left-6 right-6 p-6 bg-white/5 rounded-[2rem] border border-white/10 flex flex-col items-center">
+           <Heart size={24} className="text-white/20 mb-3" fill="currentColor" />
+           <p className="text-[10px] font-black text-center text-white/40 leading-relaxed uppercase tracking-tighter">Community Healing<br/>& Learning Project</p>
+        </div>
+      </aside>
       <main className="flex-1 md:ml-64 p-8 min-h-screen">
         <div className="max-w-6xl mx-auto">
-          {isLoading ? (
-            <LoadingState />
-          ) : (
+          {isLoading ? <div className="flex flex-col items-center justify-center py-24"><Loader2 className="animate-spin text-campus-green mb-4" size={56} /><p className="font-black text-gray-400 tracking-widest uppercase">Synchronizing Network...</p></div> : (
             <>
-              {activeTab === 'dashboard' && <DashboardView reservations={reservations} spaces={SPACES} announcements={announcements} onReserveClick={() => setActiveTab('spaces')} />}
-              
+              {activeTab === 'dashboard' && <DashboardView reservations={reservations} spaces={SPACES} onReserveClick={() => setActiveTab('spaces')} />}
               {activeTab === 'spaces' && (
-                <div className="animate-in fade-in duration-500 space-y-8">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                    {SPACES.map(space => (
-                        <div key={space.id} className="bg-white rounded-[2.5rem] overflow-hidden shadow-sm border border-gray-100 hover:shadow-2xl transition-all group">
-                            <div className="relative h-60 overflow-hidden">
-                                <img src={space.imageUrl} alt={space.name} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" />
-                                <div className="absolute top-4 left-4"><span className="bg-white/90 backdrop-blur-md px-4 py-1.5 rounded-full text-xs font-black text-campus-green shadow-sm">{space.category.toUpperCase()}</span></div>
-                            </div>
-                            <div className="p-8">
-                                <div className="flex justify-between items-start mb-4"><h3 className="text-2xl font-black text-gray-800">{space.name}</h3><div className="flex items-center text-gray-400 font-bold"><Users size={16} className="mr-2" /><span>{space.capacity}인</span></div></div>
-                                <p className="text-gray-500 text-sm mb-6 font-medium leading-relaxed">{space.description}</p>
-                                <button onClick={() => setSelectedSpace(space)} className="w-full py-4 bg-gray-50 text-campus-green font-black rounded-2xl hover:bg-campus-green hover:text-white transition-all flex items-center justify-center space-x-2"><span>지금 예약하기</span><ChevronRight size={18} /></button>
-                            </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 animate-in slide-in-from-bottom-4">
+                  {SPACES.map(s => (
+                    <div key={s.id} className="bg-white rounded-[2.5rem] overflow-hidden shadow-sm border border-gray-100 group hover:shadow-xl transition-all flex flex-col h-full">
+                      <div className="h-56 overflow-hidden relative">
+                         <img src={s.imageUrl} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" alt={s.name} />
+                         <div className="absolute top-4 left-4"><span className="bg-white/90 backdrop-blur-md px-4 py-1.5 rounded-full text-[10px] font-black text-campus-green uppercase">{s.category}</span></div>
+                      </div>
+                      <div className="p-8 flex-1 flex flex-col justify-between">
+                        <div>
+                           <div className="flex items-center space-x-3 mb-3">
+                              <div className="p-2 bg-gray-50 text-campus-green rounded-lg shadow-sm"><s.icon size={20} /></div>
+                              <h3 className="text-2xl font-black text-gray-800 tracking-tight">{s.name}</h3>
+                           </div>
+                           <p className="text-gray-500 text-sm mb-8 leading-relaxed font-medium">{s.description}</p>
                         </div>
-                    ))}
+                        <button onClick={() => setSelectedSpace(s)} className="w-full py-5 bg-gray-50 text-campus-green font-black rounded-2xl hover:bg-campus-green hover:text-white hover:shadow-lg transition-all active:scale-95">공간 예약 신청</button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {activeTab === 'reservations' && (
+                <div className="space-y-6 animate-in fade-in">
+                  <header><h2 className="text-3xl font-black text-gray-800">나의 예약 리스트</h2><p className="text-gray-400 font-bold mt-1">이음누리 캠퍼스와 함께하는 당신의 소중한 일정입니다.</p></header>
+                  <div className="grid grid-cols-1 gap-4">
+                    {reservations.length > 0 ? reservations.map(r => {
+                      const sp = SPACES.find(s => s.id === r.spaceId);
+                      return (
+                        <div key={r.id} className="bg-white p-8 rounded-[2rem] border border-gray-100 flex items-center justify-between shadow-sm hover:shadow-md transition-shadow">
+                          <div className="flex items-center space-x-6">
+                            <div className={`p-4 rounded-2xl ${r.status === 'confirmed' ? 'bg-green-50 text-green-600' : 'bg-orange-50 text-orange-600'}`}>
+                               {sp ? <sp.icon size={28} /> : <CalendarIcon size={28} />}
+                            </div>
+                            <div>
+                              <h4 className="font-black text-xl text-gray-800">{sp?.name || '미지정 공간'}</h4>
+                              <p className="text-sm text-gray-400 font-bold">{r.date} | {r.startTime} - {r.endTime}</p>
+                            </div>
+                          </div>
+                          <span className={`px-6 py-2 rounded-full text-[10px] font-black uppercase tracking-widest text-white shadow-sm ${r.status === 'confirmed' ? 'bg-green-600' : r.status === 'cancelled' ? 'bg-red-600' : 'bg-yellow-500'}`}>
+                            {r.status === 'confirmed' ? 'Approved' : r.status === 'cancelled' ? 'Declined' : 'Pending'}
+                          </span>
+                        </div>
+                      );
+                    }) : <div className="py-24 text-center font-black text-gray-200 text-2xl tracking-tighter">예약된 내역이 발견되지 않았습니다.</div>}
                   </div>
                 </div>
               )}
-
-              {activeTab === 'reservations' && (
-                <div className="animate-in slide-in-from-bottom-4 duration-500 space-y-6">
-                    <h2 className="text-3xl font-black text-gray-800">예약 현황</h2>
-                    {reservations.length > 0 ? (
-                        reservations.sort((a,b) => b.createdAt - a.createdAt).map(res => (
-                            <div key={res.id} className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100 flex items-center justify-between group hover:border-campus-green transition-colors">
-                                <div className="flex items-center space-x-6">
-                                    <div className={`p-4 rounded-2xl ${res.status === 'confirmed' ? 'bg-green-100 text-green-700' : res.status === 'cancelled' ? 'bg-red-100 text-red-700' : 'bg-yellow-100 text-yellow-700'}`}>
-                                        {res.status === 'confirmed' ? <CheckCircle2 size={24} /> : res.status === 'cancelled' ? <XCircle size={24} /> : <Clock size={24} />}
-                                    </div>
-                                    <div>
-                                        <h4 className="font-black text-lg text-gray-800">{SPACES.find(s => s.id === res.spaceId)?.name}</h4>
-                                        <p className="text-sm text-gray-400 font-bold">{res.date} | {res.startTime} - {res.endTime}</p>
-                                    </div>
-                                </div>
-                                <div className={`px-5 py-2 rounded-full text-xs font-black ${res.status === 'confirmed' ? 'bg-green-600 text-white' : res.status === 'cancelled' ? 'bg-red-600 text-white' : 'bg-yellow-500 text-white'}`}>
-                                    {res.status === 'confirmed' ? '승인완료' : res.status === 'cancelled' ? '반려됨' : '대기중'}
-                                </div>
-                            </div>
-                        ))
-                    ) : (
-                        <div className="py-20 text-center text-gray-300 font-bold">표시할 예약이 없습니다.</div>
-                    )}
-                </div>
-              )}
-
               {activeTab === 'ai-chat' && <AIChatView />}
-              
-              {activeTab === 'settings' && <SettingsView />}
-
-              {activeTab === 'admin' && (
-                <div className="max-w-4xl mx-auto space-y-8">
-                    {!isAdminAuthenticated ? (
-                        <div className="max-w-2xl mx-auto bg-white p-12 rounded-[4rem] shadow-2xl border border-gray-50 text-center animate-in zoom-in-95 duration-500 mt-10">
-                            <div className="w-20 h-20 bg-green-50 text-campus-green rounded-full flex items-center justify-center mx-auto mb-8 shadow-inner"><Lock size={40} /></div>
-                            <h2 className="text-2xl font-black text-gray-800 mb-2">관리자 로그인</h2>
-                            <p className="text-gray-400 text-sm mb-8 font-bold">서버 권한 확인이 필요합니다 (Pass: 1225)</p>
-                            <form onSubmit={handleAdminAuth} className="space-y-6">
-                                <input type="password" name="adminPassword" className="w-full px-8 py-5 bg-gray-50 border-2 border-transparent focus:border-campus-green focus:bg-white rounded-3xl outline-none text-center text-5xl font-black text-gray-900 tracking-widest transition-all shadow-inner" placeholder="••••" value={adminPasswordInput} onChange={e => setAdminPasswordInput(e.target.value)} autoFocus />
-                                <button type="submit" className="w-full bg-campus-green text-white py-5 rounded-3xl font-black text-lg shadow-xl hover:bg-green-800 hover:scale-[1.02] transition-all">접속하기</button>
-                            </form>
-                        </div>
-                    ) : (
-                        <div className="animate-in fade-in duration-500 space-y-8">
-                            <div className="flex items-center justify-between">
-                              <div className="flex space-x-4">
-                                <button 
-                                  onClick={() => setAdminView('reservations')} 
-                                  className={`px-6 py-3 rounded-2xl font-black transition-all ${adminView === 'reservations' ? 'bg-campus-green text-white shadow-lg' : 'bg-white text-gray-400 hover:bg-gray-50'}`}
-                                >
-                                  예약 관리
-                                </button>
-                                <button 
-                                  onClick={() => setAdminView('announcements')} 
-                                  className={`px-6 py-3 rounded-2xl font-black transition-all ${adminView === 'announcements' ? 'bg-campus-green text-white shadow-lg' : 'bg-white text-gray-400 hover:bg-gray-50'}`}
-                                >
-                                  공지사항 작성
-                                </button>
-                              </div>
-                              <button onClick={() => setIsAdminAuthenticated(false)} className="text-xs font-black text-red-500 px-4 py-2 hover:bg-red-50 rounded-xl transition-all">로그아웃</button>
-                            </div>
-
-                            {adminView === 'reservations' ? (
-                              <div className="grid grid-cols-1 gap-4">
-                                  {reservations.filter(r => r.status === 'pending').map(res => (
-                                      <div key={res.id} className="bg-white p-8 rounded-[2.5rem] shadow-sm border border-gray-100 flex items-center justify-between group hover:shadow-xl transition-all">
-                                          <div className="space-y-2">
-                                              <div className="flex items-center space-x-3 mb-1"><h4 className="font-black text-xl text-gray-800">{res.userName}</h4><span className="text-xs font-bold text-campus-green bg-green-50 px-3 py-1 rounded-full">{SPACES.find(s => s.id === res.spaceId)?.name}</span></div>
-                                              <p className="text-sm text-gray-400 font-bold">{res.date} | {res.startTime} - {res.endTime}</p>
-                                              <div className="p-4 bg-gray-50 rounded-2xl text-sm text-gray-600 font-medium leading-relaxed italic border border-gray-100">"{res.purpose}"</div>
-                                          </div>
-                                          <div className="flex flex-col space-y-2">
-                                              <button onClick={async () => { await CloudService.updateStatus(res.id, 'confirmed'); refreshData(); }} className="px-6 py-4 bg-green-600 text-white rounded-2xl font-black hover:bg-green-700 shadow-md flex items-center space-x-2 transition-all active:scale-95"><ThumbsUp size={18} /><span>승인</span></button>
-                                              <button onClick={async () => { await CloudService.updateStatus(res.id, 'cancelled'); refreshData(); }} className="px-6 py-4 bg-red-50 text-red-600 rounded-2xl font-black hover:bg-red-100 flex items-center space-x-2 transition-all active:scale-95"><ThumbsDown size={18} /><span>반려</span></button>
-                                          </div>
-                                      </div>
-                                  ))}
-                                  {reservations.filter(r => r.status === 'pending').length === 0 && (
-                                      <div className="py-32 text-center bg-white rounded-[3rem] border border-dashed border-gray-200 text-gray-300 font-black uppercase tracking-[0.2em] animate-pulse">All Tasks Completed</div>
-                                  )}
-                              </div>
-                            ) : (
-                              <AdminAnnouncementForm onSaved={refreshData} />
-                            )}
-                        </div>
-                    )}
-                </div>
-              )}
+              {activeTab === 'admin' && <AdminView reservations={reservations} onUpdateStatus={handleUpdateStatus} />}
             </>
           )}
         </div>
       </main>
-
-      {selectedSpace && <ReservationModal space={selectedSpace} onClose={() => setSelectedSpace(null)} onReserved={refreshData} />}
+      {selectedSpace && <ReservationModal space={selectedSpace} onClose={() => setSelectedSpace(null)} onReserved={() => { loadData(); setSelectedSpace(null); setActiveTab('reservations'); }} />}
     </div>
   );
 };
